@@ -1,0 +1,20 @@
+<section class="hero-panel d-flex align-items-center">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="card border-0 shadow-lg rounded-4">
+          <div class="card-body p-4 p-md-5">
+            <p class="brand-mark mb-2">Appiary</p>
+            <h1 class="display-6 mb-3">Welcome, {{ authStore.user()?.accountName }}</h1>
+            <p class="lead text-secondary mb-4">
+              You are signed in as {{ authStore.user()?.email }}.
+            </p>
+            <button class="btn btn-outline-dark" type="button" (click)="logout()" [disabled]="authStore.isLoading()">
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

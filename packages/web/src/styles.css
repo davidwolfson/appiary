@@ -1,0 +1,50 @@
+@import "bootstrap/dist/css/bootstrap.min.css";
+
+:root {
+  --app-bg: linear-gradient(135deg, #f7f2e7 0%, #e4efe7 100%);
+  --app-panel: rgba(255, 255, 255, 0.92);
+  --app-ink: #17324d;
+  --app-accent: #b7652b;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  background: var(--app-bg);
+  color: var(--app-ink);
+}
+
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.auth-card {
+  width: min(100%, 30rem);
+  border: 0;
+  border-radius: 1.25rem;
+  background: var(--app-panel);
+  box-shadow: 0 1.5rem 3rem rgba(23, 50, 77, 0.12);
+}
+
+.brand-mark {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--app-accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.hero-panel {
+  min-height: 100vh;
+  padding: 3rem 1rem;
+}
+

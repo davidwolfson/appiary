@@ -1,0 +1,48 @@
+<section class="auth-shell">
+  <div class="card auth-card">
+    <div class="card-body p-4 p-md-5">
+      <p class="brand-mark mb-2">Appiary</p>
+      <h1 class="h3 mb-3">Create your apiary</h1>
+      <p class="text-secondary mb-4">Register an account and you will be signed in immediately.</p>
+
+      @if (authStore.error()) {
+        <div class="alert alert-danger" role="alert">{{ authStore.error() }}</div>
+      }
+
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <div class="mb-3">
+          <label class="form-label" for="accountName">Account Name</label>
+          <input id="accountName" class="form-control" type="text" formControlName="accountName">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="email">Email</label>
+          <input id="email" class="form-control" type="email" formControlName="email">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="password">Password</label>
+          <input id="password" class="form-control" type="password" formControlName="password">
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label" for="confirmPassword">Confirm Password</label>
+          <input id="confirmPassword" class="form-control" type="password" formControlName="confirmPassword">
+        </div>
+
+        @if (form.hasError('passwordMismatch') && form.touched) {
+          <div class="alert alert-warning py-2">Passwords must match.</div>
+        }
+
+        <button class="btn btn-dark w-100" type="submit" [disabled]="authStore.isLoading()">
+          {{ authStore.isLoading() ? 'Creating account...' : 'Create account' }}
+        </button>
+      </form>
+
+      <p class="mb-0 mt-4 text-center">
+        Already registered?
+        <a routerLink="/login">Sign in</a>
+      </p>
+    </div>
+  </div>
+</section>

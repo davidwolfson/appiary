@@ -52,7 +52,9 @@ This ensures:
     /config
   /features
     /foo
+      foo.component.html
       foo.component.ts
+      foo.component.spec.ts
       foo.store.ts
       foo.service.ts
       foo.api.ts
@@ -95,6 +97,8 @@ import { FooResponse, CreateFooRequest } from '@types';
 - NO cross-feature logic
 - NO complex async workflows
 - MAY include simple logic tied to UI
+- ALWAYS keep component templates in a separate `*.component.html` file via `templateUrl`
+- ALWAYS include a `*.component.spec.ts` test file for each component
 
 ## Extraction Rule
 

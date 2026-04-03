@@ -1,0 +1,16 @@
+{
+  "name": "appiary",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "packages/api",
+    "packages/types",
+    "packages/web"
+  ],
+  "scripts": {
+    "build": "npm run build -w @appiary/types && npm run build -w @appiary/api && npm run build -w @appiary/web",
+    "dev:api": "npm run dev -w @appiary/api",
+    "dev:web": "npm run start -w @appiary/web"
+  }
+}
+
