@@ -11,6 +11,7 @@
     "build": "npm run build -w @appiary/types && npm run build -w @appiary/api && npm run build -w @appiary/web",
     "dev:api": "npm run dev -w @appiary/api",
     "dev:web": "npm run start -w @appiary/web",
+    "test:api": "npm run test -w @appiary/api",
     "test:web": "npm run test -w @appiary/web"
   }
 }

@@ -254,6 +254,40 @@ Response
 
 ---
 
+# Testing Strategy
+
+Test behavior where it lives. Do not choose test targets by file type alone.
+
+## Direct Tests Required
+
+- Services: always test public behavior, including important success paths, failure paths, branching rules, normalization, and orchestration
+- Middleware: test directly when it enforces authentication, authorization, request mutation, error propagation, or other security-sensitive behavior
+- Zod schemas: test directly when they enforce meaningful validation rules, refinements, normalization, or contract-critical constraints
+- Error middleware: test status mapping and response shape for validation errors, domain errors, and unexpected exceptions
+
+## Prefer Integration Tests
+
+- Controllers and route registration: test through HTTP-style integration tests that exercise request validation, service invocation, middleware, and response contracts together
+- Repositories: test against a test database when verifying SQL behavior, joins, transactions, row mapping, uniqueness handling, or revocation/expiry queries
+- App wiring: add a small number of integration tests for health endpoints, route mounting, JSON parsing, and error middleware wiring
+
+## Direct Tests Optional
+
+- Database helpers and transaction wrappers: optional when covered clearly through higher-level repository or service tests, but add focused tests if transaction behavior is nontrivial or has failed before
+- Environment/config loaders: optional unless path discovery, defaults, parsing, or startup configuration have become a source of defects
+- Thin async wrappers or trivial response mappers: optional when they are true pass-through helpers with no meaningful branching
+
+## Indirect Coverage Is Enough When
+
+- The file is a thin bootstrap, type declaration, or pass-through helper with no meaningful decision logic
+- A higher-level test already proves the behavior clearly without becoming brittle or redundant
+
+## Rule of Thumb
+
+If a file contains business rules, branching, security checks, validation logic, transformation, side effects, or a database/API contract, test it directly or through the smallest reliable integration boundary.
+
+---
+
 # Naming Conventions
 
 | Type | Pattern |
@@ -288,4 +322,3 @@ This architecture ensures:
 - Shared types across frontend and backend
 
 AI agents MUST follow these rules when generating or modifying code.
-
