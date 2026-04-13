@@ -56,6 +56,7 @@ This ensures:
       foo.component.ts
       foo.component.spec.ts
       foo.store.ts
+      foo.store.spec.ts
       foo.service.ts
       foo.service.spec.ts
       foo.api.ts
@@ -120,6 +121,8 @@ If logic is reused OR becomes complex → move to service
 - Use Angular signals
 - No DOM logic
 - No direct HTTP
+- ALWAYS add a `*.store.spec.ts` file when a store owns state transitions, async flows, error handling, or navigation side effects
+- ALWAYS test store public behavior directly instead of relying only on component tests
 
 ---
 
@@ -152,12 +155,60 @@ If logic is reused OR becomes complex → move to service
 - NO business logic
 - NO mapping
 - NO state
+- Test directly only when the API wrapper contains behavior beyond thin HTTP delegation
 
 ---
 
 # Mapping Layer
 
 Explicit transformation between API responses and UI models.
+
+## Rules
+
+- Test mappers directly when they perform meaningful transformation, normalization, defaulting, null handling, enum conversion, or date parsing
+- Trivial pass-through mappers may be covered indirectly, but add direct tests once mapper logic becomes a contract boundary
+
+---
+
+# Routing Guards and Interceptors
+
+## Guards
+
+- ALWAYS test guards directly when they enforce access rules or redirects
+- Do not rely only on routed component tests to prove guard behavior
+
+## Interceptors
+
+- ALWAYS test interceptors directly when they mutate requests, handle auth failures, or trigger navigation/session side effects
+- Keep interceptor tests focused on request/response behavior rather than component rendering
+
+---
+
+# Testing Strategy
+
+Test behavior where it lives. Do not choose test targets by file type alone.
+
+## Direct Tests Required
+
+- Components: always test rendered behavior and user interaction
+- Services: always test public behavior, including important success and failure paths
+- Stores: test state transitions, async orchestration, error handling, and side effects directly
+- Guards: test access decisions and redirects directly
+- Interceptors: test request mutation and response-side effects directly
+
+## Direct Tests Optional
+
+- Mappers: optional only when they are trivial pass-through functions with no meaningful branching or transformation
+- Thin API wrappers: optional when they only delegate to `HttpClient` without adding behavior
+
+## Indirect Coverage Is Enough When
+
+- The file is a thin pass-through with no branching, transformation, or side effects
+- A higher-level test already exercises the behavior clearly without becoming brittle
+
+## Rule of Thumb
+
+If a file contains branching, transformation, or side effects, test it directly.
 
 ---
 
