@@ -1,7 +1,41 @@
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { config } from "dotenv";
 import { z } from "zod";
 
-config({ override: true });
+function findEnvPath(): string | undefined {
+  const searchRoots = [
+    process.cwd(),
+    dirname(fileURLToPath(import.meta.url)),
+  ];
+
+  for (const root of searchRoots) {
+    let current = root;
+
+    for (let depth = 0; depth < 6; depth += 1) {
+      const candidate = resolve(current, ".env");
+      if (existsSync(candidate)) {
+        return candidate;
+      }
+
+      const parent = resolve(current, "..");
+      if (parent === current) {
+        break;
+      }
+
+      current = parent;
+    }
+  }
+
+  return undefined;
+}
+
+config({
+  path: findEnvPath(),
+  override: true,
+});
 
 const EnvSchema = z.object({
   DB_HOST: z.string().min(1),

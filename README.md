@@ -29,6 +29,8 @@ npm run dev:api
 npm run dev:web
 ```
 
+The Angular dev server proxies `/api/*` requests to `http://localhost:3000`, so the API still needs to be running locally for registration and login to work.
+
 ## Routes
 
 - Frontend: `/login`, `/register`, `/`
