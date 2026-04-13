@@ -1,7 +1,5 @@
-import type { PoolClient } from "pg";
-
 import type { AccountModel } from "../models/account.model.js";
-import { database } from "../utils/database.js";
+import { database, type Queryable } from "../utils/database.js";
 
 interface AccountRow {
   id: string;
@@ -11,7 +9,7 @@ interface AccountRow {
 }
 
 export class AccountRepository {
-  async create(name: string, client?: PoolClient): Promise<AccountModel> {
+  async create(name: string, client?: Queryable): Promise<AccountModel> {
     const executor = client ?? database;
     const result = await executor.query<AccountRow>(
       `INSERT INTO accounts (name)
@@ -30,4 +28,3 @@ export class AccountRepository {
     };
   }
 }
-

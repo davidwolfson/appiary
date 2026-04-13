@@ -1,7 +1,5 @@
-import type { PoolClient } from "pg";
-
 import type { UserModel, UserWithAccountModel } from "../models/user.model.js";
-import { database } from "../utils/database.js";
+import { database, type Queryable } from "../utils/database.js";
 
 interface UserRow {
   id: string;
@@ -17,7 +15,7 @@ interface UserWithAccountRow extends UserRow {
 }
 
 export class UserRepository {
-  async create(input: { accountId: string; email: string; passwordHash: string }, client?: PoolClient): Promise<UserModel> {
+  async create(input: { accountId: string; email: string; passwordHash: string }, client?: Queryable): Promise<UserModel> {
     const executor = client ?? database;
     const result = await executor.query<UserRow>(
       `INSERT INTO users (account_id, email, password_hash)
@@ -77,4 +75,3 @@ export class UserRepository {
     };
   }
 }
-

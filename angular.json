@@ -10,7 +10,7 @@
       "prefix": "app",
       "architect": {
         "build": {
-          "builder": "@angular-devkit/build-angular:application",
+          "builder": "@angular/build:application",
           "options": {
             "browser": "packages/web/src/main.ts",
             "index": "packages/web/src/index.html",
@@ -31,6 +31,13 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
             "buildTarget": "web:build"
+          }
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "buildTarget": "web:build",
+            "tsConfig": "packages/web/tsconfig.spec.json"
           }
         }
       }

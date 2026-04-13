@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { provideRouter } from "@angular/router";
+import { vi } from "vitest";
 
 import { AuthStore } from "../auth.store";
 import { RegisterComponent } from "./register.component";
@@ -22,21 +23,21 @@ describe("RegisterComponent", () => {
     submit: () => Promise<void>;
   };
   let authStore: {
-    error: jasmine.Spy<() => string | null>;
-    isLoading: jasmine.Spy<() => boolean>;
-    register: jasmine.Spy<(payload: {
+    error: () => string | null;
+    isLoading: () => boolean;
+    register: (payload: {
       accountName: string;
       email: string;
       password: string;
       confirmPassword: string;
-    }) => Promise<void>>;
+    }) => Promise<void>;
   };
 
   beforeEach(async () => {
     authStore = {
-      error: jasmine.createSpy("error").and.returnValue(null),
-      isLoading: jasmine.createSpy("isLoading").and.returnValue(false),
-      register: jasmine.createSpy("register").and.resolveTo(),
+      error: vi.fn(() => null),
+      isLoading: vi.fn(() => false),
+      register: vi.fn().mockResolvedValue(undefined),
     };
 
     await TestBed.configureTestingModule({
@@ -62,7 +63,7 @@ describe("RegisterComponent", () => {
     await componentApi.submit();
 
     expect(authStore.register).not.toHaveBeenCalled();
-    expect(componentApi.form.touched).toBeTrue();
+    expect(componentApi.form.touched).toBe(true);
   });
 
   it("does not submit when passwords do not match", async () => {

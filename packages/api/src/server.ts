@@ -1,8 +1,18 @@
 import { createApp } from "./app.js";
 import { env } from "./utils/env.js";
+import { assertDatabaseSchema } from "./utils/schema.js";
 
 const app = createApp();
 
-app.listen(env.PORT, () => {
-  console.log(`API listening on port ${env.PORT}`);
+async function startServer() {
+  await assertDatabaseSchema();
+
+  app.listen(env.PORT, () => {
+    console.log(`API listening on port ${env.PORT}`);
+  });
+}
+
+startServer().catch((error: unknown) => {
+  console.error(error);
+  process.exit(1);
 });

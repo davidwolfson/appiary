@@ -1,13 +1,11 @@
-import type { PoolClient } from "pg";
-
-import { database } from "../utils/database.js";
+import { database, type Queryable } from "../utils/database.js";
 
 interface RevokedTokenRow {
   jti: string;
 }
 
 export class RevokedTokenRepository {
-  async create(input: { jti: string; expiresAt: Date }, client?: PoolClient): Promise<void> {
+  async create(input: { jti: string; expiresAt: Date }, client?: Queryable): Promise<void> {
     const executor = client ?? database;
 
     await executor.query(
@@ -28,7 +26,6 @@ export class RevokedTokenRepository {
       [jti],
     );
 
-    return result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 }
-

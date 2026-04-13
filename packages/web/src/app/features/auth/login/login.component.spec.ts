@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { provideRouter } from "@angular/router";
+import { vi } from "vitest";
 
 import { AuthStore } from "../auth.store";
 import { LoginComponent } from "./login.component";
@@ -16,16 +17,16 @@ describe("LoginComponent", () => {
     submit: () => Promise<void>;
   };
   let authStore: {
-    error: jasmine.Spy<() => string | null>;
-    isLoading: jasmine.Spy<() => boolean>;
-    login: jasmine.Spy<(payload: { email: string; password: string }) => Promise<void>>;
+    error: () => string | null;
+    isLoading: () => boolean;
+    login: (payload: { email: string; password: string }) => Promise<void>;
   };
 
   beforeEach(async () => {
     authStore = {
-      error: jasmine.createSpy("error").and.returnValue(null),
-      isLoading: jasmine.createSpy("isLoading").and.returnValue(false),
-      login: jasmine.createSpy("login").and.resolveTo(),
+      error: vi.fn(() => null),
+      isLoading: vi.fn(() => false),
+      login: vi.fn().mockResolvedValue(undefined),
     };
 
     await TestBed.configureTestingModule({
@@ -51,7 +52,7 @@ describe("LoginComponent", () => {
     await componentApi.submit();
 
     expect(authStore.login).not.toHaveBeenCalled();
-    expect(componentApi.form.touched).toBeTrue();
+    expect(componentApi.form.touched).toBe(true);
   });
 
   it("submits the form values through the auth store", async () => {

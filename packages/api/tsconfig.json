@@ -3,6 +3,7 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
+    "paths": {},
     "types": [
       "node"
     ]
@@ -11,4 +12,3 @@
     "src/**/*.ts"
   ]
 }
-

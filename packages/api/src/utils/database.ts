@@ -2,6 +2,10 @@ import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg
 
 import { env } from "./env.js";
 
+export interface Queryable {
+  query<TResult extends QueryResultRow>(text: string, values?: unknown[]): Promise<QueryResult<TResult>>;
+}
+
 export class Database {
   private readonly pool = new Pool({
     host: env.DB_HOST,

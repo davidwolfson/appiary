@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { provideRouter } from "@angular/router";
+import { vi } from "vitest";
 
 import { AuthStore } from "../auth/auth.store";
 import { HomeComponent } from "./home.component";
@@ -12,19 +13,19 @@ describe("HomeComponent", () => {
     logout: () => Promise<void>;
   };
   let authStore: {
-    isLoading: jasmine.Spy<() => boolean>;
-    logout: jasmine.Spy<() => Promise<void>>;
-    user: jasmine.Spy<() => { accountName: string; email: string } | null>;
+    isLoading: () => boolean;
+    logout: () => Promise<void>;
+    user: () => { accountName: string; email: string } | null;
   };
 
   beforeEach(async () => {
     authStore = {
-      isLoading: jasmine.createSpy("isLoading").and.returnValue(false),
-      logout: jasmine.createSpy("logout").and.resolveTo(),
-      user: jasmine.createSpy("user").and.returnValue({
+      isLoading: vi.fn(() => false),
+      logout: vi.fn().mockResolvedValue(undefined),
+      user: vi.fn(() => ({
         accountName: "Apiary",
         email: "beekeeper@example.com",
-      }),
+      })),
     };
 
     await TestBed.configureTestingModule({
