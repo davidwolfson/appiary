@@ -57,6 +57,7 @@ This ensures:
       foo.component.spec.ts
       foo.store.ts
       foo.service.ts
+      foo.service.spec.ts
       foo.api.ts
       foo.mapper.ts
   /shared
@@ -134,6 +135,8 @@ If logic is reused OR becomes complex → move to service
 
 - NO UI concerns
 - Pure TypeScript where possible
+- ALWAYS colocate a `*.service.spec.ts` file with each service
+- ALWAYS test service public behavior, including success paths and important failure paths
 
 ---
 
