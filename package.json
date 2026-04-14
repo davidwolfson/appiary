@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "workspaces": [
     "packages/api",
+    "packages/e2e",
     "packages/types",
     "packages/web"
   ],
@@ -12,6 +13,10 @@
     "dev:api": "npm run dev -w @appiary/api",
     "dev:web": "npm run start -w @appiary/web",
     "test:api": "npm run test -w @appiary/api",
-    "test:web": "npm run test -w @appiary/web"
+    "test:web": "npm run test -w @appiary/web",
+    "test:e2e": "npm run test -w @appiary/e2e",
+    "test:e2e:headed": "npm run test:headed -w @appiary/e2e",
+    "test:e2e:ui": "npm run test:ui -w @appiary/e2e",
+    "test:e2e:install": "npm run install:browsers -w @appiary/e2e"
   }
 }
