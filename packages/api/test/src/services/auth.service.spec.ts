@@ -12,18 +12,18 @@ vi.mock("bcryptjs", () => ({
   },
 }));
 
-vi.mock("../src/utils/database.js", () => ({
+vi.mock("../../../src/utils/database.js", () => ({
   database: {
     withTransaction: withTransactionMock,
   },
 }));
 
-vi.mock("../src/utils/jwt.js", () => ({
+vi.mock("../../../src/utils/jwt.js", () => ({
   signAuthToken: signAuthTokenMock,
 }));
 
-import { AuthService } from "../src/services/auth.service.js";
-import { AppError } from "../src/utils/app-error.js";
+import { AuthService } from "../../../src/services/auth.service.js";
+import { AppError } from "../../../src/utils/app-error.js";
 
 describe("AuthService", () => {
   const accountRepository = {

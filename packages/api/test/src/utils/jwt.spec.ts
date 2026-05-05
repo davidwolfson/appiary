@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { signAuthToken, verifyAuthToken } from "../src/utils/jwt.js";
+import { signAuthToken, verifyAuthToken } from "../../../src/utils/jwt.js";
 
 describe("jwt utils", () => {
   it("signs a token with the expected subject and a generated jti", () => {

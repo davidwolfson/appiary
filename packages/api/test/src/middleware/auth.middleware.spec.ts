@@ -3,18 +3,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const isRevokedMock = vi.hoisted(() => vi.fn());
 const verifyAuthTokenMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../src/repositories/revoked-token.repository.js", () => ({
+vi.mock("../../../src/repositories/revoked-token.repository.js", () => ({
   RevokedTokenRepository: class {
     isRevoked = isRevokedMock;
   },
 }));
 
-vi.mock("../src/utils/jwt.js", () => ({
+vi.mock("../../../src/utils/jwt.js", () => ({
   verifyAuthToken: verifyAuthTokenMock,
 }));
 
-import { requireAuth } from "../src/middleware/auth.middleware.js";
-import { AppError } from "../src/utils/app-error.js";
+import { requireAuth } from "../../../src/middleware/auth.middleware.js";
+import { AppError } from "../../../src/utils/app-error.js";
 
 describe("requireAuth", () => {
   beforeEach(() => {

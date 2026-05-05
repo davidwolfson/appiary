@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const queryMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../src/utils/database.js", () => ({
+vi.mock("../../../src/utils/database.js", () => ({
   database: {
     query: queryMock,
   },
 }));
 
-import { assertDatabaseSchema } from "../src/utils/schema.js";
+import { assertDatabaseSchema } from "../../../src/utils/schema.js";
 
 describe("assertDatabaseSchema", () => {
   beforeEach(() => {

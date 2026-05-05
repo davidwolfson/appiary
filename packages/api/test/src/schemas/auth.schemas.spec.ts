@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { LoginRequestSchema, RegisterRequestSchema } from "../src/schemas/auth.schemas.js";
+import { LoginRequestSchema, RegisterRequestSchema } from "../../../src/schemas/auth.schemas.js";
 
 describe("RegisterRequestSchema", () => {
   it("accepts valid input and trims string fields", () => {

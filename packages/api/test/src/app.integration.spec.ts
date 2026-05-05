@@ -8,7 +8,7 @@ const logoutMock = vi.hoisted(() => vi.fn());
 const getAuthenticatedUserMock = vi.hoisted(() => vi.fn());
 const requireAuthMock = vi.hoisted(() => vi.fn());
 
-vi.mock("../src/services/auth.service.js", () => ({
+vi.mock("../../src/services/auth.service.js", () => ({
   AuthService: class {
     register = registerMock;
     login = loginMock;
@@ -17,23 +17,23 @@ vi.mock("../src/services/auth.service.js", () => ({
   },
 }));
 
-vi.mock("../src/repositories/account.repository.js", () => ({
+vi.mock("../../src/repositories/account.repository.js", () => ({
   AccountRepository: class {},
 }));
 
-vi.mock("../src/repositories/user.repository.js", () => ({
+vi.mock("../../src/repositories/user.repository.js", () => ({
   UserRepository: class {},
 }));
 
-vi.mock("../src/repositories/revoked-token.repository.js", () => ({
+vi.mock("../../src/repositories/revoked-token.repository.js", () => ({
   RevokedTokenRepository: class {},
 }));
 
-vi.mock("../src/middleware/auth.middleware.js", () => ({
+vi.mock("../../src/middleware/auth.middleware.js", () => ({
   requireAuth: requireAuthMock,
 }));
 
-import { AppError } from "../src/utils/app-error.js";
+import { AppError } from "../../src/utils/app-error.js";
 
 describe("createApp", () => {
   beforeEach(() => {
@@ -53,7 +53,7 @@ describe("createApp", () => {
   async function withApp(
     callback: (baseUrl: string) => Promise<void>,
   ): Promise<void> {
-    const { createApp } = await import("../src/app.js");
+    const { createApp } = await import("../../src/app.js");
     const app = createApp();
     const server = app.listen(0);
     const { port } = server.address() as AddressInfo;

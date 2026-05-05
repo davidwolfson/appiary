@@ -1,8 +1,8 @@
 import { ZodError, z } from "zod";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { errorMiddleware } from "../src/middleware/error.middleware.js";
-import { AppError } from "../src/utils/app-error.js";
+import { errorMiddleware } from "../../../src/middleware/error.middleware.js";
+import { AppError } from "../../../src/utils/app-error.js";
 
 describe("errorMiddleware", () => {
   const json = vi.fn();
