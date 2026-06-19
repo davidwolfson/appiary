@@ -1,0 +1,65 @@
+import type { Page, Route } from "@playwright/test";
+
+import type { CreateHiveRequest, HiveResponse, ListHivesResponse } from "@appiary/types";
+
+export function createHive(overrides: Partial<HiveResponse> = {}): HiveResponse {
+  return {
+    hiveId: "hive-123",
+    name: "North Field",
+    status: true,
+    ...overrides,
+  };
+}
+
+export function createHiveInput(overrides: Partial<CreateHiveRequest> = {}): CreateHiveRequest {
+  return {
+    name: "North Field",
+    status: true,
+    ...overrides,
+  };
+}
+
+export async function mockListHivesRequest(
+  page: Page,
+  hivesOrHandler: HiveResponse[] | ((route: Route) => Promise<void>) = [],
+): Promise<void> {
+  await page.route("**/api/hives", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    if (typeof hivesOrHandler === "function") {
+      await hivesOrHandler(route);
+      return;
+    }
+
+    const response: ListHivesResponse = { hives: hivesOrHandler };
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(response),
+    });
+  });
+}
+
+export async function mockCreateHiveRequest(
+  page: Page,
+  handler: (route: Route, payload: CreateHiveRequest) => Promise<void>,
+): Promise<{ requests: CreateHiveRequest[] }> {
+  const requests: CreateHiveRequest[] = [];
+
+  await page.route("**/api/hives", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback();
+      return;
+    }
+
+    const payload = route.request().postDataJSON() as CreateHiveRequest;
+    requests.push(payload);
+    await handler(route, payload);
+  });
+
+  return { requests };
+}

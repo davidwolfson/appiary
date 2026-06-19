@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import type { LoginRequest } from "@appiary/types";
 
 import { createAuthResponse, createAuthenticatedUser, mockLoginRequest, visitAsAuthenticatedUser } from "../../helpers/auth";
+import { mockListHivesRequest } from "../../helpers/hives";
 import { routes } from "../../helpers/routes";
 import { createHomePage } from "../../pages/home-page";
 import { createLoginPage } from "../../pages/login-page";
@@ -85,6 +86,7 @@ test.describe("login", () => {
     const user = createAuthenticatedUser({ email: loginInput.email });
     const homePage = createHomePage(page);
     const loginPage = createLoginPage(page);
+    await mockListHivesRequest(page);
     const { requests } = await mockLoginRequest(page, async (route) => {
       await route.fulfill({
         status: 200,
@@ -116,6 +118,7 @@ test.describe("login", () => {
     };
     const user = createAuthenticatedUser({ email: loginInput.email });
     const loginPage = createLoginPage(page);
+    await mockListHivesRequest(page);
     let resolveRequest!: () => void;
     const requestReleased = new Promise<void>((resolve) => {
       resolveRequest = resolve;

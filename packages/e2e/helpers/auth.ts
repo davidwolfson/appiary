@@ -2,6 +2,8 @@ import type { Page, Route } from "@playwright/test";
 
 import type { AuthResponse, AuthenticatedUser, LoginRequest, RegisterRequest } from "@appiary/types";
 
+import { mockListHivesRequest } from "./hives";
+
 const authTokenStorageKey = "appiary.auth.token";
 
 export function createAuthenticatedUser(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser {
@@ -33,6 +35,7 @@ export async function visitAsAuthenticatedUser(page: Page, user: AuthenticatedUs
       body: JSON.stringify(user),
     });
   });
+  await mockListHivesRequest(page);
 }
 
 export async function mockLoginRequest(
