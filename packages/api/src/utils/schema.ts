@@ -10,6 +10,7 @@ const requiredColumnsByTable = {
   accounts: ["id", "name", "created_at", "updated_at"],
   users: ["id", "account_id", "email", "password_hash", "created_at", "updated_at"],
   revoked_tokens: ["jti", "expires_at", "created_at"],
+  hives: ["hive_id", "account_id", "status", "name", "created_at", "updated_at"],
 } satisfies Record<string, string[]>;
 
 export async function assertDatabaseSchema(): Promise<void> {
@@ -45,7 +46,7 @@ export async function assertDatabaseSchema(): Promise<void> {
   if (mismatches.length > 0) {
     throw new AppError(
       500,
-      `Database schema is out of date. Apply packages/api/db/schema.sql. ${mismatches.join(" | ")}`,
+      `Database schema is out of date after running migrations. Check packages/api/db/migrations. ${mismatches.join(" | ")}`,
     );
   }
 }
