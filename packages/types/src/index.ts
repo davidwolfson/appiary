@@ -21,3 +21,10 @@ export interface AuthResponse {
   user: AuthenticatedUser;
   token: string;
 }
+
+export type {
+  CreateHiveRequest,
+  CreateHiveResponse,
+  HiveResponse,
+  ListHivesResponse,
+} from "./hive";
