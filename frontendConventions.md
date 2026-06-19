@@ -106,6 +106,33 @@ import { FooResponse, CreateFooRequest } from '@types';
 
 If logic is reused OR becomes complex → move to service
 
+## Modal/Dialog Components
+
+Modal and dialog components MUST be instantiated on demand by the parent.
+
+Parent components should wrap the modal component in Angular control flow:
+
+```html
+@if (isModalOpen()) {
+  <app-edit-foo-modal
+    [isSaving]="fooStore.isSaving()"
+    [error]="fooStore.saveError()"
+    (save)="saveFoo($event)"
+    (closed)="closeModal()"
+  ></app-edit-foo-modal>
+}
+```
+
+Modal components should render their dialog markup directly once instantiated. Do not keep modal components permanently mounted with an `isOpen` input and an internal template guard.
+
+Rules:
+
+- Parent owns whether the modal component exists
+- Modal owns its form and emits user actions
+- Closing a modal destroys its local form state
+- API failure should keep the modal open so user input is preserved
+- Successful save should close the modal, allowing the next open to create a fresh instance
+
 ---
 
 # Stores (Signal-Based State Layer)

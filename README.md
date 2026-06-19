@@ -16,18 +16,14 @@ npm install
 
 2. Create `.env` from `.env.example`.
 
-3. Create the PostgreSQL schema:
-
-```bash
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -f packages/api/db/schema.sql
-```
-
-4. Start the apps:
+3. Start the apps:
 
 ```bash
 npm run dev:api
 npm run dev:web
 ```
+
+The API applies pending SQL migrations from `packages/api/db/migrations` on startup, then validates the resulting schema.
 
 The Angular dev server proxies `/api/*` requests to `http://localhost:3000`, so the API still needs to be running locally for registration and login to work.
 

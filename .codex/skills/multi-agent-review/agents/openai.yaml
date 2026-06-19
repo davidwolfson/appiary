@@ -1,0 +1,4 @@
+interface:
+  display_name: "Multi-Agent Review"
+  short_description: "Run verified composite PR reviews"
+  default_prompt: "Use $multi-agent-review to review the current branch against project conventions."
