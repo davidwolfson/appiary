@@ -37,22 +37,28 @@ describe("guestGuard", () => {
   });
 
   it("allows navigation for unauthenticated users", () => {
+    // given the auth store reports no authenticated user
     authStore.isAuthenticated.mockReturnValue(false);
 
+    // when the guest guard evaluates navigation
     const result = TestBed.runInInjectionContext(() => guestGuard(route, state));
 
+    // then navigation is allowed
     expect(result).toBe(true);
     expect(router.parseUrl).not.toHaveBeenCalled();
   });
 
   it("redirects authenticated users to the home page", () => {
+    // given the auth store reports an authenticated user
     const homeUrlTree = { redirectedTo: "/" };
 
     authStore.isAuthenticated.mockReturnValue(true);
     router.parseUrl.mockReturnValue(homeUrlTree);
 
+    // when the guest guard evaluates navigation
     const result = TestBed.runInInjectionContext(() => guestGuard(route, state));
 
+    // then navigation redirects home
     expect(router.parseUrl).toHaveBeenCalledWith("/");
     expect(result).toBe(homeUrlTree);
   });

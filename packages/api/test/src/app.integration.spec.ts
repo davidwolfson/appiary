@@ -90,15 +90,19 @@ describe("createApp", () => {
   }
 
   it("serves the health endpoint", async () => {
+    // given the API application is running
+    // when the health endpoint is requested
     await withApp(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/health`);
 
+      // then the API reports that it is healthy
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({ ok: true });
     });
   });
 
   it("registers users through the auth route", async () => {
+    // given the auth service will register a new user
     registerMock.mockResolvedValue({
       user: {
         id: "user-1",
@@ -109,6 +113,7 @@ describe("createApp", () => {
       token: "signed-token",
     });
 
+    // when valid registration details are posted
     await withApp(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/auth/register`, {
         method: "POST",
@@ -123,6 +128,7 @@ describe("createApp", () => {
         }),
       });
 
+      // then the route returns the auth result and normalized service input
       expect(response.status).toBe(201);
       await expect(response.json()).resolves.toEqual({
         user: {
@@ -142,6 +148,8 @@ describe("createApp", () => {
   });
 
   it("returns validation errors through the centralized error middleware", async () => {
+    // given registration details violate the request schema
+    // when the invalid registration is posted
     await withApp(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/auth/register`, {
         method: "POST",
@@ -156,6 +164,7 @@ describe("createApp", () => {
         }),
       });
 
+      // then the route returns a validation error without calling the service
       expect(response.status).toBe(400);
       await expect(response.json()).resolves.toMatchObject({
         message: "Validation failed",
@@ -165,8 +174,10 @@ describe("createApp", () => {
   });
 
   it("maps domain errors from routes to HTTP responses", async () => {
+    // given registration fails with a domain conflict
     registerMock.mockRejectedValue(new AppError(409, "Email is already registered"));
 
+    // when valid registration details are posted
     await withApp(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/auth/register`, {
         method: "POST",
@@ -181,6 +192,7 @@ describe("createApp", () => {
         }),
       });
 
+      // then the conflict status and message are returned
       expect(response.status).toBe(409);
       await expect(response.json()).resolves.toEqual({
         message: "Email is already registered",
@@ -189,6 +201,7 @@ describe("createApp", () => {
   });
 
   it("logs users in through the auth route", async () => {
+    // given the auth service accepts valid credentials
     loginMock.mockResolvedValue({
       user: {
         id: "user-1",
@@ -199,6 +212,7 @@ describe("createApp", () => {
       token: "signed-token",
     });
 
+    // when the credentials are posted to the login route
     await withApp(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/auth/login`, {
         method: "POST",
@@ -211,6 +225,7 @@ describe("createApp", () => {
         }),
       });
 
+      // then the route returns the token and forwards the credentials
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toMatchObject({
         token: "signed-token",
@@ -222,7 +237,25 @@ describe("createApp", () => {
     });
   });
 
-  it("supports authenticated logout and me routes", async () => {
+  it("logs authenticated users out", async () => {
+    // given an authenticated request
+    // when the logout route is called
+    await withApp(async (baseUrl) => {
+      const logoutResponse = await fetch(`${baseUrl}/api/auth/logout`, {
+        method: "POST",
+      });
+
+      // then the token is revoked and no content is returned
+      expect(logoutResponse.status).toBe(204);
+      expect(logoutMock).toHaveBeenCalledWith({
+        jti: "token-1",
+        expiresAt: new Date("2026-01-01T00:00:00.000Z"),
+      });
+    });
+  });
+
+  it("returns the authenticated user", async () => {
+    // given an authenticated user exists
     getAuthenticatedUserMock.mockResolvedValue({
       id: "user-1",
       email: "user@example.com",
@@ -230,18 +263,11 @@ describe("createApp", () => {
       accountName: "Acme",
     });
 
+    // when the current-user route is called
     await withApp(async (baseUrl) => {
-      const logoutResponse = await fetch(`${baseUrl}/api/auth/logout`, {
-        method: "POST",
-      });
       const meResponse = await fetch(`${baseUrl}/api/auth/me`);
 
-      expect(logoutResponse.status).toBe(204);
-      expect(logoutMock).toHaveBeenCalledWith({
-        jti: "token-1",
-        expiresAt: new Date("2026-01-01T00:00:00.000Z"),
-      });
-
+      // then the authenticated user is returned
       expect(meResponse.status).toBe(200);
       await expect(meResponse.json()).resolves.toEqual({
         id: "user-1",
@@ -254,6 +280,7 @@ describe("createApp", () => {
   });
 
   it("lists hives through the protected hives route", async () => {
+    // given an authenticated user has a hive
     listForAuthenticatedUserMock.mockResolvedValue({
       hives: [
         {
@@ -264,9 +291,11 @@ describe("createApp", () => {
       ],
     });
 
+    // when the protected hives route is requested
     await withApp(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/hives`);
 
+      // then the route returns that user's hives
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({
         hives: [
@@ -283,6 +312,7 @@ describe("createApp", () => {
   });
 
   it("creates hives through the protected hives route", async () => {
+    // given the hive service can create a hive
     createForAuthenticatedUserMock.mockResolvedValue({
       hive: {
         hiveId: "hive-1",
@@ -291,6 +321,7 @@ describe("createApp", () => {
       },
     });
 
+    // when a hive with a padded name is posted
     await withApp(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/hives`, {
         method: "POST",
@@ -303,6 +334,7 @@ describe("createApp", () => {
         }),
       });
 
+      // then the route returns the hive and passes normalized input to the service
       expect(response.status).toBe(201);
       await expect(response.json()).resolves.toEqual({
         hive: {
@@ -320,6 +352,8 @@ describe("createApp", () => {
   });
 
   it("rejects invalid hive create payloads before calling the service", async () => {
+    // given the hive name is invalid
+    // when the hive is posted
     await withApp(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/hives`, {
         method: "POST",
@@ -332,6 +366,7 @@ describe("createApp", () => {
         }),
       });
 
+      // then validation fails before the hive service is called
       expect(response.status).toBe(400);
       await expect(response.json()).resolves.toMatchObject({
         message: "Validation failed",
@@ -341,8 +376,10 @@ describe("createApp", () => {
   });
 
   it("maps duplicate hive name errors from hives routes", async () => {
+    // given hive creation fails with a duplicate-name conflict
     createForAuthenticatedUserMock.mockRejectedValue(new AppError(409, "Hive name already exists"));
 
+    // when valid hive details are posted
     await withApp(async (baseUrl) => {
       const response = await fetch(`${baseUrl}/api/hives`, {
         method: "POST",
@@ -355,6 +392,7 @@ describe("createApp", () => {
         }),
       });
 
+      // then the route returns the conflict response
       expect(response.status).toBe(409);
       await expect(response.json()).resolves.toEqual({
         message: "Hive name already exists",

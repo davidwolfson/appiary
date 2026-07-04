@@ -24,6 +24,7 @@ describe("HiveService", () => {
   }
 
   it("lists hives for the authenticated user's account", async () => {
+    // given the authenticated user belongs to an account with hives
     const service = createService();
 
     userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
@@ -38,7 +39,11 @@ describe("HiveService", () => {
       },
     ]);
 
-    await expect(service.listForAuthenticatedUser("user-1")).resolves.toEqual({
+    // when the user's hives are requested
+    const result = service.listForAuthenticatedUser("user-1");
+
+    // then the repository is scoped to the account and the hives are returned
+    await expect(result).resolves.toEqual({
       hives: [
         {
           hiveId: "hive-1",
@@ -51,6 +56,7 @@ describe("HiveService", () => {
   });
 
   it("creates a hive for the authenticated user's account", async () => {
+    // given the authenticated user belongs to an account
     const service = createService();
 
     userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
@@ -63,11 +69,15 @@ describe("HiveService", () => {
       updatedAt: new Date(),
     });
 
-    await expect(service.createForAuthenticatedUser({
+    // when the user creates a hive
+    const result = service.createForAuthenticatedUser({
       authenticatedUserId: "user-1",
       name: "  North Field  ",
       status: true,
-    })).resolves.toEqual({
+    });
+
+    // then the repository receives the account data and the hive is returned
+    await expect(result).resolves.toEqual({
       hive: {
         hiveId: "hive-1",
         name: "North Field",
@@ -82,30 +92,48 @@ describe("HiveService", () => {
   });
 
   it("maps duplicate hive name repository errors to conflict errors", async () => {
+    // given the repository rejects a duplicate hive name
     const service = createService();
 
     userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
     hiveRepository.create.mockRejectedValue(new DuplicateHiveNameError());
 
-    await expect(service.createForAuthenticatedUser({
+    // when the user creates the hive
+    const result = service.createForAuthenticatedUser({
       authenticatedUserId: "user-1",
       name: "North Field",
       status: true,
-    })).rejects.toEqual(new AppError(409, "Hive name already exists"));
+    });
+
+    // then the service returns a domain conflict
+    await expect(result).rejects.toEqual(new AppError(409, "Hive name already exists"));
   });
 
-  it("rejects when the authenticated user cannot be resolved", async () => {
+  it("rejects hive listing when the authenticated user cannot be resolved", async () => {
+    // given the authenticated user cannot be loaded
     const service = createService();
-
     userRepository.findById.mockResolvedValue(null);
 
-    await expect(service.listForAuthenticatedUser("missing-user")).rejects.toEqual(
-      new AppError(401, "Unauthorized"),
-    );
-    await expect(service.createForAuthenticatedUser({
+    // when the user's hives are requested
+    const result = service.listForAuthenticatedUser("missing-user");
+
+    // then the service rejects the request as unauthorized
+    await expect(result).rejects.toEqual(new AppError(401, "Unauthorized"));
+  });
+
+  it("rejects hive creation when the authenticated user cannot be resolved", async () => {
+    // given the authenticated user cannot be loaded
+    const service = createService();
+    userRepository.findById.mockResolvedValue(null);
+
+    // when the user creates a hive
+    const result = service.createForAuthenticatedUser({
       authenticatedUserId: "missing-user",
       name: "North Field",
       status: true,
-    })).rejects.toEqual(new AppError(401, "Unauthorized"));
+    });
+
+    // then the service rejects the request as unauthorized
+    await expect(result).rejects.toEqual(new AppError(401, "Unauthorized"));
   });
 });

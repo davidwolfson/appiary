@@ -258,6 +258,17 @@ Response
 
 Test behavior where it lives. Do not choose test targets by file type alone.
 
+## Scenario Structure
+
+Every `*.spec.ts` test must separate its scenario with `// given`, `// when`, and `// then` comments.
+
+- Keep phases monotonic: all `given` sections come before every `when` section, and all `when` sections come before every `then` section.
+- Multiple comments within the same phase are allowed when they keep setup, actions, or outcomes clear.
+- Each comment must name the relevant setup, action, or outcome. Generic labels such as `given the test context`, `when the behavior is exercised`, or `then the expected outcome is observed` are not acceptable.
+- Never return to `given` or `when` after assertions under `then` have begun. Split the later action and its outcome into another test.
+- Shared hooks may establish common background state, but test-specific setup belongs under `given`.
+- Keep test names brief and describe the observable behavior.
+
 ## Direct Tests Required
 
 - Services: always test public behavior, including important success paths, failure paths, branching rules, normalization, and orchestration

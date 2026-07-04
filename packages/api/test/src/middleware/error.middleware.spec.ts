@@ -15,6 +15,7 @@ describe("errorMiddleware", () => {
   });
 
   it("maps zod errors to 400 responses", () => {
+    // given a Zod validation error reaches error middleware
     const zodError = new ZodError([
       {
         code: z.ZodIssueCode.invalid_type,
@@ -25,8 +26,10 @@ describe("errorMiddleware", () => {
       },
     ]);
 
+    // when the middleware maps the error
     errorMiddleware(zodError, {} as never, res as never, vi.fn());
 
+    // then a 400 validation response is sent
     expect(status).toHaveBeenCalledWith(400);
     expect(json).toHaveBeenCalledWith({
       message: "Validation failed",
@@ -35,8 +38,11 @@ describe("errorMiddleware", () => {
   });
 
   it("maps app errors to their status code", () => {
+    // given an application error reaches error middleware
+    // when the middleware maps the error
     errorMiddleware(new AppError(409, "Conflict"), {} as never, res as never, vi.fn());
 
+    // then the application status and message are sent
     expect(status).toHaveBeenCalledWith(409);
     expect(json).toHaveBeenCalledWith({
       message: "Conflict",
@@ -44,10 +50,13 @@ describe("errorMiddleware", () => {
   });
 
   it("maps unexpected errors to a 500 response", () => {
+    // given an unexpected error reaches error middleware
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
+    // when the middleware maps the error
     errorMiddleware(new Error("boom"), {} as never, res as never, vi.fn());
 
+    // then a generic 500 response is sent
     expect(status).toHaveBeenCalledWith(500);
     expect(json).toHaveBeenCalledWith({
       message: "Internal server error",

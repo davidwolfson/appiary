@@ -59,10 +59,13 @@ describe("AuthStore", () => {
   });
 
   it("initializes from a restored session and clears the initializing flag", async () => {
+    // given the auth service can restore a session
     authService.restoreSession.mockResolvedValue(session);
 
+    // when the store initializes
     await store.initialize();
 
+    // then the session is exposed and initialization completes
     expect(authService.restoreSession).toHaveBeenCalled();
     expect(store.session()).toEqual(session);
     expect(store.user()).toEqual(user);
@@ -71,6 +74,7 @@ describe("AuthStore", () => {
   });
 
   it("logs in, stores the session, and redirects home", async () => {
+    // given valid credentials resolve to an auth session
     const payload: LoginRequest = {
       email: "beekeeper@example.com",
       password: "secret123",
@@ -78,8 +82,10 @@ describe("AuthStore", () => {
 
     authService.login.mockResolvedValue(session);
 
+    // when the store logs in
     await store.login(payload);
 
+    // then the session is stored and navigation goes home
     expect(authService.login).toHaveBeenCalledWith(payload);
     expect(store.session()).toEqual(session);
     expect(store.error()).toBeNull();
@@ -89,6 +95,7 @@ describe("AuthStore", () => {
   });
 
   it("surfaces API error messages on login failure and rethrows", async () => {
+    // given the login API rejects with a message
     const error = {
       error: {
         message: "Invalid credentials",
@@ -97,12 +104,14 @@ describe("AuthStore", () => {
 
     authService.login.mockRejectedValue(error);
 
-    await expect(
-      store.login({
-        email: "beekeeper@example.com",
-        password: "wrong-password",
-      }),
-    ).rejects.toBe(error);
+    // when the store logs in
+    const result = store.login({
+      email: "beekeeper@example.com",
+      password: "wrong-password",
+    });
+
+    // then the error is rethrown and exposed without navigation
+    await expect(result).rejects.toBe(error);
 
     expect(store.session()).toBeNull();
     expect(store.error()).toBe("Invalid credentials");
@@ -111,12 +120,15 @@ describe("AuthStore", () => {
   });
 
   it("logs out, clears the session, and redirects to login", async () => {
+    // given the store has a session and logout succeeds
     authService.restoreSession.mockResolvedValue(session);
     authService.logout.mockResolvedValue(undefined);
 
+    // when the store logs out
     await store.initialize();
     await store.logout();
 
+    // then the session is cleared and navigation goes to login
     expect(authService.logout).toHaveBeenCalled();
     expect(store.session()).toBeNull();
     expect(store.isAuthenticated()).toBe(false);
@@ -126,12 +138,15 @@ describe("AuthStore", () => {
   });
 
   it("keeps the current session and exposes a fallback message when logout fails", async () => {
+    // given the store has a session and logout fails without an API message
     authService.restoreSession.mockResolvedValue(session);
     authService.logout.mockRejectedValue(new Error("logout failed"));
 
+    // when the store logs out
     await store.initialize();
     await store.logout();
 
+    // then the session remains and a fallback error is exposed
     expect(store.session()).toEqual(session);
     expect(store.error()).toBe("Something went wrong");
     expect(store.isLoading()).toBe(false);

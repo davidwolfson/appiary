@@ -33,24 +33,34 @@ describe("HivesService", () => {
   });
 
   it("lists mapped hives from the API", async () => {
+    // given the API returns a hive-list response
     hivesApi.listHives.mockReturnValue(of({
       hives: [{ hiveId: "hive-1", name: "North Field", status: true }],
     }));
 
-    await expect(service.listHives()).resolves.toEqual([
+    // when the service lists hives
+    const result = service.listHives();
+
+    // then the mapped hive array is returned
+    await expect(result).resolves.toEqual([
       { hiveId: "hive-1", name: "North Field", status: true },
     ]);
     expect(hivesApi.listHives).toHaveBeenCalled();
   });
 
   it("creates and maps a hive from the API", async () => {
+    // given valid create details and an API hive response are available
     const payload: CreateHiveRequest = { name: "North Field", status: true };
 
     hivesApi.createHive.mockReturnValue(of({
       hive: { hiveId: "hive-1", name: "North Field", status: true },
     }));
 
-    await expect(service.createHive(payload)).resolves.toEqual({
+    // when the service creates the hive
+    const result = service.createHive(payload);
+
+    // then the request is forwarded and the mapped hive is returned
+    await expect(result).resolves.toEqual({
       hiveId: "hive-1",
       name: "North Field",
       status: true,

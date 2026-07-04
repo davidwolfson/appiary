@@ -68,57 +68,78 @@ describe("HivesDashboardComponent", () => {
   });
 
   it("loads hives on render", () => {
+    // given the dashboard fixture is created
+    // when the initial dashboard view renders
+    // then the store is asked to load hives
     expect(hivesStore.loadHives).toHaveBeenCalled();
   });
 
   it("displays loading state", () => {
+    // given the hives store reports that loading is active
     loadingState.set(true);
+
+    // when the dashboard view is refreshed
     fixture.detectChanges();
 
+    // then the loading message is visible
     expect(fixture.nativeElement.textContent).toContain("Loading hives...");
   });
 
   it("displays empty state", () => {
+    // given the hives store contains no hives
+    // when the dashboard view is refreshed
     fixture.detectChanges();
 
+    // then the empty-state message is visible
     expect(fixture.nativeElement.textContent).toContain("No hives yet");
   });
 
   it("renders one hive card per hive", () => {
+    // given the store contains two hives
     hivesState.set([
       { hiveId: "hive-1", name: "North Field", status: true },
       { hiveId: "hive-2", name: "South Field", status: false },
     ]);
     hasHivesState.set(true);
+
+    // when the dashboard view is refreshed
     fixture.detectChanges();
 
+    // then both hive cards are visible
     expect(fixture.nativeElement.textContent).toContain("North Field");
     expect(fixture.nativeElement.textContent).toContain("South Field");
   });
 
   it("opens the Add Hive modal from the Add Hive button", () => {
+    // given the dashboard is rendered with the modal closed
+    // when the Add Hive button is clicked
     fixture.nativeElement.querySelector("[aria-label='Add Hive']").click();
     fixture.detectChanges();
 
+    // then create errors are cleared and the modal opens
     expect(modalOpen()).not.toBeNull();
     expect(hivesStore.clearCreateError).toHaveBeenCalled();
   });
 
   it("passes successful modal submission to the store", async () => {
+    // given the Add Hive modal is open
     fixture.nativeElement.querySelector("[aria-label='Add Hive']").click();
     fixture.detectChanges();
 
+    // when valid hive details are submitted
     const component = fixture.componentInstance as never as {
       createHive: (payload: { name: string; status: boolean }) => Promise<void>;
     };
     await component.createHive({ name: "North Field", status: true });
     fixture.detectChanges();
 
+    // then the store creates the hive and the modal closes
     expect(hivesStore.createHive).toHaveBeenCalledWith({ name: "North Field", status: true });
     expect(modalOpen()).toBeNull();
   });
 
   it("reopens the Add Hive modal with a fresh form after successful create", async () => {
+    // given a completed create has closed a populated Add Hive modal
     fixture.nativeElement.querySelector("[aria-label='Add Hive']").click();
     fixture.detectChanges();
 
@@ -134,28 +155,38 @@ describe("HivesDashboardComponent", () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
+    // when the Add Hive modal is opened again
     fixture.nativeElement.querySelector("[aria-label='Add Hive']").click();
     fixture.detectChanges();
 
+    // then the new form contains its default values
     expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).value).toBe("");
     expect((fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("Active");
   });
 
   it("displays load errors", () => {
+    // given the hives store reports a load error
     errorState.set("Could not load hives");
+
+    // when the dashboard view is refreshed
     fixture.detectChanges();
 
+    // then the load error is visible
     expect(fixture.nativeElement.textContent).toContain("Could not load hives");
   });
 
   it("does not render stale hive cards while a load error is visible", () => {
+    // given the store has stale hives and a current load error
     hivesState.set([
       { hiveId: "hive-1", name: "North Field", status: true },
     ]);
     hasHivesState.set(true);
     errorState.set("Could not load hives");
+
+    // when the dashboard view is refreshed
     fixture.detectChanges();
 
+    // then the error is shown without stale hive cards
     expect(fixture.nativeElement.textContent).toContain("Could not load hives");
     expect(fixture.nativeElement.textContent).not.toContain("North Field");
   });

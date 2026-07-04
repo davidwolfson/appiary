@@ -45,24 +45,33 @@ describe("LoginComponent", () => {
   });
 
   it("creates the component", () => {
+    // given the component test fixture is configured
+    // when the component instance is created
+    // then the component exists
     expect(component).toBeTruthy();
   });
 
   it("does not submit while the form is invalid", async () => {
+    // given the form contains invalid default values
+    // when the form is submitted
     await componentApi.submit();
 
+    // then the store is not called and validation is shown
     expect(authStore.login).not.toHaveBeenCalled();
     expect(componentApi.form.touched).toBe(true);
   });
 
   it("submits the form values through the auth store", async () => {
+    // given the form contains valid authentication values
     componentApi.form.setValue({
       email: "beekeeper@example.com",
       password: "secret",
     });
 
+    // when the form is submitted
     await componentApi.submit();
 
+    // then the auth store receives those values
     expect(authStore.login).toHaveBeenCalledWith({
       email: "beekeeper@example.com",
       password: "secret",

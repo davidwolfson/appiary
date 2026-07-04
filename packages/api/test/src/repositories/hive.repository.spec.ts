@@ -16,6 +16,7 @@ describe("HiveRepository", () => {
   });
 
   it("inserts and maps a hive", async () => {
+    // given the database returns an inserted hive row
     const createdAt = new Date("2026-01-01T00:00:00.000Z");
     const updatedAt = new Date("2026-01-02T00:00:00.000Z");
     const repository = new HiveRepository();
@@ -31,11 +32,15 @@ describe("HiveRepository", () => {
       }],
     });
 
-    await expect(repository.create({
+    // when the repository creates the hive
+    const result = repository.create({
       accountId: "account-1",
       name: "North Field",
       status: true,
-    })).resolves.toEqual({
+    });
+
+    // then the insert parameters and mapped hive are returned
+    await expect(result).resolves.toEqual({
       hiveId: "hive-1",
       accountId: "account-1",
       name: "North Field",
@@ -51,18 +56,24 @@ describe("HiveRepository", () => {
   });
 
   it("maps unique violations to duplicate hive name repository errors", async () => {
+    // given the database reports a unique-name violation
     const repository = new HiveRepository();
 
     queryMock.mockRejectedValue({ code: "23505" });
 
-    await expect(repository.create({
+    // when the repository creates the hive
+    const result = repository.create({
       accountId: "account-1",
       name: "North Field",
       status: true,
-    })).rejects.toEqual(new DuplicateHiveNameError());
+    });
+
+    // then a duplicate-name repository error is returned
+    await expect(result).rejects.toEqual(new DuplicateHiveNameError());
   });
 
   it("retrieves hives by account id", async () => {
+    // given the database contains hives for an account
     const repository = new HiveRepository();
 
     queryMock.mockResolvedValue({
@@ -76,8 +87,10 @@ describe("HiveRepository", () => {
       }],
     });
 
+    // when the repository lists that account's hives
     const result = await repository.findByAccountId("account-1");
 
+    // then the query is scoped and rows are mapped
     expect(result[0]).toMatchObject({
       hiveId: "hive-1",
       accountId: "account-1",
