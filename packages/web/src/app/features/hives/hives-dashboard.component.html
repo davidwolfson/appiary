@@ -1,0 +1,52 @@
+<section class="dashboard-shell">
+  <div class="container py-4 py-md-5">
+    <header class="dashboard-header d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
+      <div>
+        <p class="brand-mark mb-2">Appiary</p>
+        <h1 class="h2 mb-1">{{ authStore.user()?.accountName }} Hives</h1>
+        <p class="text-secondary mb-0">{{ authStore.user()?.email }}</p>
+      </div>
+
+      <div class="d-flex align-items-start gap-2">
+        <button class="btn btn-dark add-hive-button" type="button" aria-label="Add Hive" title="Add Hive" (click)="openAddHiveModal()">
+          <span aria-hidden="true">+</span>
+        </button>
+        <button class="btn btn-outline-dark" type="button" (click)="logout()" [disabled]="authStore.isLoading()">Logout</button>
+      </div>
+    </header>
+
+    @if (hivesStore.isLoading()) {
+      <div class="alert alert-info" role="status">Loading hives...</div>
+    } @else {
+      @if (hivesStore.error()) {
+        <div class="alert alert-danger" role="alert">{{ hivesStore.error() }}</div>
+      }
+
+      @if (!hivesStore.hasHives() && !hivesStore.error()) {
+        <div class="empty-state border rounded-2 p-4 p-md-5">
+          <h2 class="h4 mb-2">No hives yet</h2>
+          <p class="text-secondary mb-0">Add your first hive to start tracking your apiary.</p>
+        </div>
+      }
+
+      @if (hivesStore.hasHives() && !hivesStore.error()) {
+        <div class="row g-3">
+          @for (hive of hivesStore.hives(); track hive.hiveId) {
+            <div class="col-12 col-md-6 col-lg-4">
+              <app-hive-card [hive]="hive"></app-hive-card>
+            </div>
+          }
+        </div>
+      }
+    }
+  </div>
+</section>
+
+@if (isModalOpen()) {
+  <app-edit-hive-modal
+    [isSaving]="hivesStore.isCreating()"
+    [error]="hivesStore.createError()"
+    (save)="createHive($event)"
+    (closed)="closeAddHiveModal()"
+  ></app-edit-hive-modal>
+}

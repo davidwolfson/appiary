@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 import type { RegisterRequest } from "@appiary/types";
 
 import { createAuthResponse, createAuthenticatedUser, mockRegisterRequest, visitAsAuthenticatedUser } from "../../helpers/auth";
+import { mockListHivesRequest } from "../../helpers/hives";
 import { routes } from "../../helpers/routes";
 import { createRegistrationInput } from "../../helpers/test-data";
 import { createHomePage } from "../../pages/home-page";
@@ -162,6 +163,7 @@ test.describe("register", () => {
     });
     const homePage = createHomePage(page);
     const registerPage = createRegisterPage(page);
+    await mockListHivesRequest(page);
     const { requests } = await mockRegisterRequest(page, async (route) => {
       await route.fulfill({
         status: 200,
@@ -196,6 +198,7 @@ test.describe("register", () => {
       accountName: registration.accountName,
     });
     const registerPage = createRegisterPage(page);
+    await mockListHivesRequest(page);
     let resolveRequest!: () => void;
     const requestReleased = new Promise<void>((resolve) => {
       resolveRequest = resolve;

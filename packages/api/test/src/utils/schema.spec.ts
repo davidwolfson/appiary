@@ -31,6 +31,12 @@ describe("assertDatabaseSchema", () => {
         { table_name: "revoked_tokens", column_name: "jti" },
         { table_name: "revoked_tokens", column_name: "expires_at" },
         { table_name: "revoked_tokens", column_name: "created_at" },
+        { table_name: "hives", column_name: "hive_id" },
+        { table_name: "hives", column_name: "account_id" },
+        { table_name: "hives", column_name: "status" },
+        { table_name: "hives", column_name: "name" },
+        { table_name: "hives", column_name: "created_at" },
+        { table_name: "hives", column_name: "updated_at" },
       ],
     });
 
@@ -48,8 +54,11 @@ describe("assertDatabaseSchema", () => {
     });
 
     await expect(assertDatabaseSchema()).rejects.toThrow(
-      "Database schema is out of date. Apply packages/api/db/schema.sql.",
+      "Database schema is out of date after running migrations. Check packages/api/db/migrations.",
     );
     await expect(assertDatabaseSchema()).rejects.toThrow("accounts: missing name, created_at, updated_at");
+    await expect(assertDatabaseSchema()).rejects.toThrow(
+      "hives: missing hive_id, account_id, status, name, created_at, updated_at",
+    );
   });
 });

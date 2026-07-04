@@ -4,12 +4,12 @@ import { authGuard } from "./features/auth/auth.guard";
 import { guestGuard } from "./features/auth/guest.guard";
 import { LoginComponent } from "./features/auth/login/login.component";
 import { RegisterComponent } from "./features/auth/register/register.component";
-import { HomeComponent } from "./features/home/home.component";
+import { HivesDashboardComponent } from "./features/hives/hives-dashboard.component";
 
 export const appRoutes: Routes = [
   {
     path: "",
-    component: HomeComponent,
+    component: HivesDashboardComponent,
     canActivate: [authGuard],
   },
   {
