@@ -32,6 +32,7 @@ describe("runDatabaseMigrations", () => {
   });
 
   it("applies pending migrations in filename order and records them", async () => {
+    // given one migration is pending among sorted SQL files
     readdirMock.mockResolvedValue(["002_hives.sql", "notes.txt", "001_initial_auth.sql"]);
     readFileMock.mockImplementation(async (path: string) => {
       if (path.endsWith("001_initial_auth.sql")) {
@@ -50,8 +51,10 @@ describe("runDatabaseMigrations", () => {
       .mockResolvedValueOnce({ rows: [{ filename: "001_initial_auth.sql" }] })
       .mockResolvedValue({ rows: [] });
 
+    // when database migrations run
     await runDatabaseMigrations();
 
+    // then only the pending migration is applied and recorded in order
     expect(queryMock).toHaveBeenNthCalledWith(1, "SELECT pg_advisory_xact_lock(481516, 2342)");
     expect(queryMock).toHaveBeenNthCalledWith(2, expect.stringContaining("CREATE TABLE IF NOT EXISTS schema_migrations"));
     expect(queryMock).toHaveBeenNthCalledWith(3, "SELECT filename FROM schema_migrations");
@@ -60,6 +63,7 @@ describe("runDatabaseMigrations", () => {
   });
 
   it("does not apply migrations already recorded in schema_migrations", async () => {
+    // given the discovered migration is already recorded
     readdirMock.mockResolvedValue(["001_initial_auth.sql"]);
     readFileMock.mockResolvedValue("CREATE TABLE accounts");
     queryMock
@@ -67,8 +71,10 @@ describe("runDatabaseMigrations", () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ filename: "001_initial_auth.sql" }] });
 
+    // when database migrations run
     await runDatabaseMigrations();
 
+    // then the recorded migration is not read or applied again
     expect(queryMock).toHaveBeenCalledTimes(3);
     expect(queryMock).not.toHaveBeenCalledWith("CREATE TABLE accounts");
     expect(queryMock).not.toHaveBeenCalledWith("INSERT INTO schema_migrations (filename) VALUES ($1)", ["001_initial_auth.sql"]);

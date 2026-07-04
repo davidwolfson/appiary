@@ -56,17 +56,24 @@ describe("RegisterComponent", () => {
   });
 
   it("creates the component", () => {
+    // given the component test fixture is configured
+    // when the component instance is created
+    // then the component exists
     expect(component).toBeTruthy();
   });
 
   it("does not submit while the form is invalid", async () => {
+    // given the form contains invalid default values
+    // when the form is submitted
     await componentApi.submit();
 
+    // then the store is not called and validation is shown
     expect(authStore.register).not.toHaveBeenCalled();
     expect(componentApi.form.touched).toBe(true);
   });
 
   it("does not submit when passwords do not match", async () => {
+    // given the registration form contains different passwords
     componentApi.form.setValue({
       accountName: "Apiary",
       email: "beekeeper@example.com",
@@ -74,13 +81,16 @@ describe("RegisterComponent", () => {
       confirmPassword: "secret456",
     });
 
+    // when the form is submitted
     await componentApi.submit();
 
+    // then registration is blocked with a password-mismatch error
     expect(authStore.register).not.toHaveBeenCalled();
     expect(componentApi.form.errors).toEqual({ passwordMismatch: true });
   });
 
   it("submits the form values through the auth store", async () => {
+    // given the form contains valid authentication values
     componentApi.form.setValue({
       accountName: "Apiary",
       email: "beekeeper@example.com",
@@ -88,8 +98,10 @@ describe("RegisterComponent", () => {
       confirmPassword: "secret123",
     });
 
+    // when the form is submitted
     await componentApi.submit();
 
+    // then the auth store receives those values
     expect(authStore.register).toHaveBeenCalledWith({
       accountName: "Apiary",
       email: "beekeeper@example.com",

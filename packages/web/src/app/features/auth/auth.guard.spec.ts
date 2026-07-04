@@ -37,22 +37,28 @@ describe("authGuard", () => {
   });
 
   it("allows navigation for authenticated users", () => {
+    // given the auth store reports an authenticated user
     authStore.isAuthenticated.mockReturnValue(true);
 
+    // when the auth guard evaluates navigation
     const result = TestBed.runInInjectionContext(() => authGuard(route, state));
 
+    // then navigation is allowed
     expect(result).toBe(true);
     expect(router.parseUrl).not.toHaveBeenCalled();
   });
 
   it("redirects unauthenticated users to the login page", () => {
+    // given the auth store reports no authenticated user
     const loginUrlTree = { redirectedTo: "/login" };
 
     authStore.isAuthenticated.mockReturnValue(false);
     router.parseUrl.mockReturnValue(loginUrlTree);
 
+    // when the auth guard evaluates navigation
     const result = TestBed.runInInjectionContext(() => authGuard(route, state));
 
+    // then navigation redirects to login
     expect(router.parseUrl).toHaveBeenCalledWith("/login");
     expect(result).toBe(loginUrlTree);
   });

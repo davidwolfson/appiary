@@ -223,7 +223,7 @@ Examples:
 
 ## Scenario Structure
 
-Follow the existing Given/When/Then comment style inside tests:
+Every test must separate its scenario with `// given`, `// when`, and `// then` comments:
 
 ```ts
 // given I am on the login page
@@ -240,6 +240,11 @@ await homePage.expectSignedIn(user);
 
 ## Rules
 
+- Keep phases monotonic: all `given` sections come before every `when` section, and all `when` sections come before every `then` section
+- Multiple comments within the same phase are allowed when they keep setup, actions, or outcomes clear
+- Each comment must name the relevant setup, action, or outcome; generic labels such as `given the test context`, `when the behavior is exercised`, or `then the expected outcome is observed` are not acceptable
+- Never return to `given` or `when` after assertions under `then` have begun; split the later action and its outcome into another test
+- For example, `given → when → then → when → then` is invalid and must be two tests
 - Keep one primary behavior under test per test case
 - Instantiate page objects near the top of the test
 - Keep setup, action, and assertions in clear order

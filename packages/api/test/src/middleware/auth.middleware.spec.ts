@@ -23,6 +23,7 @@ describe("requireAuth", () => {
   });
 
   it("attaches auth metadata and calls next for a valid token", async () => {
+    // given a request contains a valid bearer token
     const req = {
       header: vi.fn().mockReturnValue("Bearer token-123"),
     } as never;
@@ -35,8 +36,10 @@ describe("requireAuth", () => {
     });
     isRevokedMock.mockResolvedValue(false);
 
+    // when authentication middleware verifies the request
     await requireAuth(req, {} as never, next);
 
+    // then auth metadata is attached and the request continues
     expect(verifyAuthTokenMock).toHaveBeenCalledWith("token-123");
     expect(isRevokedMock).toHaveBeenCalledWith("token-1");
     expect((req as { authenticatedUserId?: string }).authenticatedUserId).toBe("user-1");
@@ -46,16 +49,20 @@ describe("requireAuth", () => {
   });
 
   it("rejects missing bearer tokens", async () => {
+    // given a request has no bearer token
     const next = vi.fn();
 
+    // when authentication middleware handles the request
     await requireAuth({
       header: vi.fn().mockReturnValue(undefined),
     } as never, {} as never, next);
 
+    // then an unauthorized error is forwarded
     expect(next).toHaveBeenCalledWith(new AppError(401, "Unauthorized"));
   });
 
   it("rejects tokens with incomplete payloads", async () => {
+    // given a bearer token lacks required auth claims
     const next = vi.fn();
 
     verifyAuthTokenMock.mockReturnValue({
@@ -64,14 +71,17 @@ describe("requireAuth", () => {
       exp: 1_900_000_000,
     });
 
+    // when authentication middleware verifies the token
     await requireAuth({
       header: vi.fn().mockReturnValue("Bearer token-123"),
     } as never, {} as never, next);
 
+    // then an unauthorized error is forwarded
     expect(next).toHaveBeenCalledWith(new AppError(401, "Unauthorized"));
   });
 
   it("rejects revoked tokens", async () => {
+    // given a bearer token has been revoked
     const next = vi.fn();
 
     verifyAuthTokenMock.mockReturnValue({
@@ -81,14 +91,17 @@ describe("requireAuth", () => {
     });
     isRevokedMock.mockResolvedValue(true);
 
+    // when authentication middleware verifies the token
     await requireAuth({
       header: vi.fn().mockReturnValue("Bearer token-123"),
     } as never, {} as never, next);
 
+    // then an unauthorized error is forwarded
     expect(next).toHaveBeenCalledWith(new AppError(401, "Unauthorized"));
   });
 
   it("forwards verification failures to express error handling", async () => {
+    // given token verification throws an error
     const next = vi.fn();
     const error = new Error("bad token");
 
@@ -96,10 +109,12 @@ describe("requireAuth", () => {
       throw error;
     });
 
+    // when authentication middleware handles the request
     await requireAuth({
       header: vi.fn().mockReturnValue("Bearer token-123"),
     } as never, {} as never, next);
 
+    // then the verification error is forwarded unchanged
     expect(next).toHaveBeenCalledWith(error);
   });
 });

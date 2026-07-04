@@ -30,12 +30,15 @@ describe("HivesStore", () => {
   });
 
   it("loads hives and updates state", async () => {
+    // given the hives service returns a hive
     hivesService.listHives.mockResolvedValue([
       { hiveId: "hive-1", name: "North Field", status: true },
     ]);
 
+    // when the store loads hives
     await store.loadHives();
 
+    // then hive, loading, and error state reflect success
     expect(store.hives()).toEqual([
       { hiveId: "hive-1", name: "North Field", status: true },
     ]);
@@ -45,6 +48,7 @@ describe("HivesStore", () => {
   });
 
   it("sets an error when loading hives fails", async () => {
+    // given the store has stale hives and the next load will fail
     hivesService.listHives.mockResolvedValueOnce([
       { hiveId: "hive-1", name: "North Field", status: true },
     ]);
@@ -54,8 +58,10 @@ describe("HivesStore", () => {
       error: { message: "Could not load hives" },
     });
 
+    // when the store reloads hives
     await store.loadHives();
 
+    // then stale hives are cleared and the load error is exposed
     expect(store.hives()).toEqual([]);
     expect(store.hasHives()).toBe(false);
     expect(store.error()).toBe("Could not load hives");
@@ -63,6 +69,7 @@ describe("HivesStore", () => {
   });
 
   it("appends a created hive", async () => {
+    // given the store contains one hive and creation will return another
     hivesService.listHives.mockResolvedValue([
       { hiveId: "hive-1", name: "North Field", status: true },
     ]);
@@ -72,9 +79,11 @@ describe("HivesStore", () => {
       status: false,
     });
 
+    // when the store creates a hive
     await store.loadHives();
     await store.createHive({ name: "South Field", status: false });
 
+    // then the created hive is appended and create state is cleared
     expect(store.hives()).toEqual([
       { hiveId: "hive-1", name: "North Field", status: true },
       { hiveId: "hive-2", name: "South Field", status: false },
@@ -84,11 +93,16 @@ describe("HivesStore", () => {
   });
 
   it("sets create errors and rethrows when create fails", async () => {
+    // given the hives service rejects creation with an API message
     const error = { error: { message: "Hive name already exists" } };
 
     hivesService.createHive.mockRejectedValue(error);
 
-    await expect(store.createHive({ name: "North Field", status: true })).rejects.toBe(error);
+    // when the store creates a hive
+    const result = store.createHive({ name: "North Field", status: true });
+
+    // then the rejection propagates and create error state is set
+    await expect(result).rejects.toBe(error);
     expect(store.createError()).toBe("Hive name already exists");
     expect(store.isCreating()).toBe(false);
   });

@@ -37,6 +37,7 @@ describe("authInterceptor", () => {
   });
 
   it("adds an authorization header when a token exists", async () => {
+    // given the session contains an auth token
     const request = new HttpRequest("GET", "/api/auth/me");
     let authorizedRequest: HttpRequest<unknown> | undefined;
     const next = vi.fn((interceptedRequest: HttpRequest<unknown>) => {
@@ -46,13 +47,16 @@ describe("authInterceptor", () => {
 
     authService.getToken.mockReturnValue("token-123");
 
+    // when the interceptor handles an API request
     await lastValueFrom(TestBed.runInInjectionContext(() => authInterceptor(request, next)));
 
+    // then the forwarded request contains the bearer token
     expect(next).toHaveBeenCalled();
     expect(authorizedRequest?.headers.get("Authorization")).toBe("Bearer token-123");
   });
 
   it("passes the request through unchanged when no token exists", async () => {
+    // given the session has no auth token
     const request = new HttpRequest("GET", "/api/auth/me");
     let forwardedRequest: HttpRequest<unknown> | undefined;
     const next = vi.fn((interceptedRequest: HttpRequest<unknown>) => {
@@ -62,13 +66,16 @@ describe("authInterceptor", () => {
 
     authService.getToken.mockReturnValue(null);
 
+    // when the interceptor handles an API request
     await lastValueFrom(TestBed.runInInjectionContext(() => authInterceptor(request, next)));
 
+    // then the original request is forwarded without authorization
     expect(forwardedRequest).toBe(request);
     expect(forwardedRequest?.headers.has("Authorization")).toBe(false);
   });
 
   it("clears the session and redirects to login on 401 responses", async () => {
+    // given an authenticated API request receives a 401 response
     const request = new HttpRequest("GET", "/api/auth/me");
     const unauthorizedError = new HttpErrorResponse({
       status: 401,
@@ -79,15 +86,20 @@ describe("authInterceptor", () => {
 
     authService.getToken.mockReturnValue("token-123");
 
-    await expect(
-      lastValueFrom(TestBed.runInInjectionContext(() => authInterceptor(request, next))),
-    ).rejects.toBe(unauthorizedError);
+    // when the interceptor handles the response error
+    const result = lastValueFrom(
+      TestBed.runInInjectionContext(() => authInterceptor(request, next)),
+    );
+
+    // then the session is cleared and navigation goes to login
+    await expect(result).rejects.toBe(unauthorizedError);
 
     expect(authService.clearSession).toHaveBeenCalled();
     expect(router.navigateByUrl).toHaveBeenCalledWith("/login");
   });
 
   it("does not redirect on non-401 responses", async () => {
+    // given an authenticated API request receives a 500 response
     const request = new HttpRequest("GET", "/api/auth/me");
     const serverError = new HttpErrorResponse({
       status: 500,
@@ -98,9 +110,13 @@ describe("authInterceptor", () => {
 
     authService.getToken.mockReturnValue("token-123");
 
-    await expect(
-      lastValueFrom(TestBed.runInInjectionContext(() => authInterceptor(request, next))),
-    ).rejects.toBe(serverError);
+    // when the interceptor handles the response error
+    const result = lastValueFrom(
+      TestBed.runInInjectionContext(() => authInterceptor(request, next)),
+    );
+
+    // then the error propagates without clearing or redirecting
+    await expect(result).rejects.toBe(serverError);
 
     expect(authService.clearSession).not.toHaveBeenCalled();
     expect(router.navigateByUrl).not.toHaveBeenCalled();

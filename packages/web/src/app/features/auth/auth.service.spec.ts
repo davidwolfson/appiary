@@ -51,6 +51,7 @@ describe("AuthService", () => {
   });
 
   it("registers and persists the returned token", async () => {
+    // given valid registration details and a successful API response are available
     const payload: RegisterRequest = {
       accountName: "Apiary",
       email: "beekeeper@example.com",
@@ -60,7 +61,11 @@ describe("AuthService", () => {
 
     authApi.register.mockReturnValue(of(authResponse));
 
-    await expect(service.register(payload)).resolves.toEqual({
+    // when the service registers the user
+    const result = service.register(payload);
+
+    // then the auth session is returned and its token is persisted
+    await expect(result).resolves.toEqual({
       token: "token-123",
       user,
     });
@@ -69,6 +74,7 @@ describe("AuthService", () => {
   });
 
   it("logs in and persists the returned token", async () => {
+    // given valid credentials and a successful API response are available
     const payload: LoginRequest = {
       email: "beekeeper@example.com",
       password: "secret123",
@@ -76,7 +82,11 @@ describe("AuthService", () => {
 
     authApi.login.mockReturnValue(of(authResponse));
 
-    await expect(service.login(payload)).resolves.toEqual({
+    // when the service logs the user in
+    const result = service.login(payload);
+
+    // then the auth session is returned and its token is persisted
+    await expect(result).resolves.toEqual({
       token: "token-123",
       user,
     });
@@ -85,20 +95,30 @@ describe("AuthService", () => {
   });
 
   it("clears the persisted token after logout even if the API call fails", async () => {
+    // given a token is persisted and the logout API will fail
     globalThis.localStorage.setItem("appiary.auth.token", "token-123");
     authApi.logout.mockReturnValue(throwError(() => new Error("logout failed")));
 
-    await expect(service.logout()).rejects.toThrow("logout failed");
+    // when the service logs out
+    const result = service.logout();
+
+    // then the API error propagates after the local token is cleared
+    await expect(result).rejects.toThrow("logout failed");
 
     expect(authApi.logout).toHaveBeenCalled();
     expect(service.getToken()).toBeNull();
   });
 
   it("restores a session from the persisted token and current user", async () => {
+    // given a token is persisted and the API returns the current user
     globalThis.localStorage.setItem("appiary.auth.token", "token-123");
     authApi.getMe.mockReturnValue(of(user));
 
-    await expect(service.restoreSession()).resolves.toEqual({
+    // when the service restores the session
+    const result = service.restoreSession();
+
+    // then the token and current user form the restored session
+    await expect(result).resolves.toEqual({
       token: "token-123",
       user,
     });
@@ -106,25 +126,38 @@ describe("AuthService", () => {
   });
 
   it("returns null when there is no persisted token", async () => {
-    await expect(service.restoreSession()).resolves.toBeNull();
+    // given no auth token is persisted
+    // when the service restores the session
+    const result = service.restoreSession();
+
+    // then no session is returned and the API is not called
+    await expect(result).resolves.toBeNull();
 
     expect(authApi.getMe).not.toHaveBeenCalled();
   });
 
   it("clears the persisted token when session restoration fails", async () => {
+    // given a token is persisted but the current-user request fails
     globalThis.localStorage.setItem("appiary.auth.token", "token-123");
     authApi.getMe.mockReturnValue(throwError(() => new Error("unauthorized")));
 
-    await expect(service.restoreSession()).resolves.toBeNull();
+    // when the service restores the session
+    const result = service.restoreSession();
+
+    // then no session is returned and the invalid token is removed
+    await expect(result).resolves.toBeNull();
 
     expect(service.getToken()).toBeNull();
   });
 
   it("clears the current session token", () => {
+    // given an auth token is persisted
     globalThis.localStorage.setItem("appiary.auth.token", "token-123");
 
+    // when the service clears the session
     service.clearSession();
 
+    // then the persisted token is removed
     expect(service.getToken()).toBeNull();
   });
 });
