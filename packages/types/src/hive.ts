@@ -13,6 +13,15 @@ export interface CreateHiveResponse {
   hive: HiveResponse;
 }
 
+export interface UpdateHiveRequest {
+  name: string;
+  status: boolean;
+}
+
+export interface UpdateHiveResponse {
+  hive: HiveResponse;
+}
+
 export interface ListHivesResponse {
   hives: HiveResponse[];
 }
