@@ -10,3 +10,5 @@ export const CreateHiveRequestSchema = z.object({
     invalid_type_error: "Status must be true or false",
   }),
 });
+
+export const UpdateHiveRequestSchema = CreateHiveRequestSchema;
