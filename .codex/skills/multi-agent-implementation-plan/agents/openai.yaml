@@ -1,0 +1,4 @@
+interface:
+  display_name: "Multi-Agent Implementation Plan"
+  short_description: "Create verified plans from acceptance criteria"
+  default_prompt: "Use $multi-agent-implementation-plan to create an implementation plan for these acceptance criteria."
