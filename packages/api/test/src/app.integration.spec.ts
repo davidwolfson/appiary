@@ -8,6 +8,7 @@ const logoutMock = vi.hoisted(() => vi.fn());
 const getAuthenticatedUserMock = vi.hoisted(() => vi.fn());
 const listForAuthenticatedUserMock = vi.hoisted(() => vi.fn());
 const createForAuthenticatedUserMock = vi.hoisted(() => vi.fn());
+const updateForAuthenticatedUserMock = vi.hoisted(() => vi.fn());
 const requireAuthMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../../src/services/auth.service.js", () => ({
@@ -23,6 +24,7 @@ vi.mock("../../src/services/hive.service.js", () => ({
   HiveService: class {
     listForAuthenticatedUser = listForAuthenticatedUserMock;
     createForAuthenticatedUser = createForAuthenticatedUserMock;
+    updateForAuthenticatedUser = updateForAuthenticatedUserMock;
   },
 }));
 
@@ -56,6 +58,7 @@ describe("createApp", () => {
     getAuthenticatedUserMock.mockReset();
     listForAuthenticatedUserMock.mockReset();
     createForAuthenticatedUserMock.mockReset();
+    updateForAuthenticatedUserMock.mockReset();
     requireAuthMock.mockReset();
     requireAuthMock.mockImplementation((req, _res, next) => {
       req.authenticatedUserId = "user-1";
@@ -397,6 +400,149 @@ describe("createApp", () => {
       await expect(response.json()).resolves.toEqual({
         message: "Hive name already exists",
       });
+    });
+  });
+
+  it("updates hives through the protected hives route", async () => {
+    // given the hive service can update a hive
+    updateForAuthenticatedUserMock.mockResolvedValue({
+      hive: {
+        hiveId: "hive-1",
+        name: "South Field",
+        status: false,
+      },
+    });
+
+    // when updated hive details are put with a padded name
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/hives/hive-1`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "  South Field  ",
+          status: false,
+        }),
+      });
+
+      // then the route returns the updated hive and forwards normalized input
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        hive: {
+          hiveId: "hive-1",
+          name: "South Field",
+          status: false,
+        },
+      });
+      expect(updateForAuthenticatedUserMock).toHaveBeenCalledWith({
+        authenticatedUserId: "user-1",
+        hiveId: "hive-1",
+        name: "South Field",
+        status: false,
+      });
+    });
+  });
+
+  it("rejects invalid hive update payloads before calling the service", async () => {
+    // given the hive update payload is invalid
+    // when the hive is put
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/hives/hive-1`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "",
+          status: true,
+        }),
+      });
+
+      // then validation fails before the hive service is called
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        message: "Validation failed",
+      });
+      expect(updateForAuthenticatedUserMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("maps missing hive errors from hive update routes", async () => {
+    // given hive update fails because the hive is missing
+    updateForAuthenticatedUserMock.mockRejectedValue(new AppError(404, "Hive not found"));
+
+    // when valid hive details are put
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/hives/missing-hive`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "South Field",
+          status: false,
+        }),
+      });
+
+      // then the route returns the missing-hive response
+      expect(response.status).toBe(404);
+      await expect(response.json()).resolves.toEqual({
+        message: "Hive not found",
+      });
+    });
+  });
+
+  it("maps duplicate hive name errors from hive update routes", async () => {
+    // given hive update fails with a duplicate-name conflict
+    updateForAuthenticatedUserMock.mockRejectedValue(new AppError(409, "Hive name already exists"));
+
+    // when valid hive details are put
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/hives/hive-1`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "North Field",
+          status: true,
+        }),
+      });
+
+      // then the route returns the conflict response
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toEqual({
+        message: "Hive name already exists",
+      });
+    });
+  });
+
+  it("rejects unauthenticated hive update requests", async () => {
+    // given authentication rejects the request
+    requireAuthMock.mockImplementation((_req, _res, next) => {
+      next(new AppError(401, "Unauthorized"));
+    });
+
+    // when valid hive details are put
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/hives/hive-1`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "South Field",
+          status: false,
+        }),
+      });
+
+      // then the route returns the auth rejection without calling the service
+      expect(response.status).toBe(401);
+      await expect(response.json()).resolves.toEqual({
+        message: "Unauthorized",
+      });
+      expect(updateForAuthenticatedUserMock).not.toHaveBeenCalled();
     });
   });
 });
