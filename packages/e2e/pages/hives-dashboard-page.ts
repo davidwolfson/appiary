@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-import type { AuthenticatedUser, CreateHiveRequest } from "@appiary/types";
+import type { AuthenticatedUser, CreateHiveRequest, UpdateHiveRequest } from "@appiary/types";
 
 import { routes } from "../helpers/routes";
 
@@ -8,7 +8,9 @@ export function createHivesDashboardPage(page: Page) {
   const addHiveButton = page.getByRole("button", { name: "Add Hive" });
   const logoutButton = page.getByRole("button", { name: "Logout" });
   const emptyState = page.getByRole("heading", { name: "No hives yet" });
-  const modal = page.getByRole("dialog", { name: "Add Hive" });
+  const addHiveModal = page.getByRole("dialog", { name: "Add Hive" });
+  const editHiveModal = page.getByRole("dialog", { name: "Edit Hive" });
+  const editHiveButton = page.getByRole("button", { name: "Edit Hive" });
   const hiveNameInput = page.getByLabel("Hive Name");
   const statusSelect = page.getByLabel("Status");
   const saveButton = page.getByRole("button", { name: "Save Hive" });
@@ -21,7 +23,10 @@ export function createHivesDashboardPage(page: Page) {
     addHiveButton,
     logoutButton,
     emptyState,
-    modal,
+    modal: addHiveModal,
+    addHiveModal,
+    editHiveModal,
+    editHiveButton,
     hiveNameInput,
     statusSelect,
     saveButton,
@@ -44,9 +49,13 @@ export function createHivesDashboardPage(page: Page) {
     },
     async openAddHiveModal(): Promise<void> {
       await addHiveButton.click();
-      await expect(modal).toBeVisible();
+      await expect(addHiveModal).toBeVisible();
     },
-    async fillForm(payload: CreateHiveRequest): Promise<void> {
+    async openEditHiveModal(): Promise<void> {
+      await editHiveButton.click();
+      await expect(editHiveModal).toBeVisible();
+    },
+    async fillForm(payload: CreateHiveRequest | UpdateHiveRequest): Promise<void> {
       await hiveNameInput.fill(payload.name);
       await statusSelect.selectOption({ label: payload.status ? "Active" : "Inactive" });
     },

@@ -1,6 +1,11 @@
 import type { Page, Route } from "@playwright/test";
 
-import type { CreateHiveRequest, HiveResponse, ListHivesResponse } from "@appiary/types";
+import type {
+  CreateHiveRequest,
+  HiveResponse,
+  ListHivesResponse,
+  UpdateHiveRequest,
+} from "@appiary/types";
 
 export function createHive(overrides: Partial<HiveResponse> = {}): HiveResponse {
   return {
@@ -59,6 +64,27 @@ export async function mockCreateHiveRequest(
     const payload = route.request().postDataJSON() as CreateHiveRequest;
     requests.push(payload);
     await handler(route, payload);
+  });
+
+  return { requests };
+}
+
+export async function mockUpdateHiveRequest(
+  page: Page,
+  handler: (route: Route, hiveId: string, payload: UpdateHiveRequest) => Promise<void>,
+): Promise<{ requests: Array<{ hiveId: string; payload: UpdateHiveRequest }> }> {
+  const requests: Array<{ hiveId: string; payload: UpdateHiveRequest }> = [];
+
+  await page.route("**/api/hives/*", async (route) => {
+    if (route.request().method() !== "PUT") {
+      await route.fallback();
+      return;
+    }
+
+    const hiveId = route.request().url().split("/").at(-1) ?? "";
+    const payload = route.request().postDataJSON() as UpdateHiveRequest;
+    requests.push({ hiveId, payload });
+    await handler(route, hiveId, payload);
   });
 
   return { requests };

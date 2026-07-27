@@ -3,7 +3,7 @@ import { TestBed } from "@angular/core/testing";
 import { of } from "rxjs";
 import { vi } from "vitest";
 
-import type { CreateHiveRequest } from "@appiary/types";
+import type { CreateHiveRequest, UpdateHiveRequest } from "@appiary/types";
 
 import { HivesApi } from "./hives.api";
 import { HivesService } from "./hives.service";
@@ -13,12 +13,14 @@ describe("HivesService", () => {
   let hivesApi: {
     createHive: ReturnType<typeof vi.fn>;
     listHives: ReturnType<typeof vi.fn>;
+    updateHive: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
     hivesApi = {
       createHive: vi.fn(),
       listHives: vi.fn(),
+      updateHive: vi.fn(),
     };
 
     TestBed.configureTestingModule({
@@ -66,5 +68,25 @@ describe("HivesService", () => {
       status: true,
     });
     expect(hivesApi.createHive).toHaveBeenCalledWith(payload);
+  });
+
+  it("updates and maps a hive from the API", async () => {
+    // given valid update details and an API hive response are available
+    const payload: UpdateHiveRequest = { name: "North Field", status: false };
+
+    hivesApi.updateHive.mockReturnValue(of({
+      hive: { hiveId: "hive-1", name: "North Field", status: false },
+    }));
+
+    // when the service updates the hive
+    const result = service.updateHive("hive-1", payload);
+
+    // then the request is forwarded and the mapped hive is returned
+    await expect(result).resolves.toEqual({
+      hiveId: "hive-1",
+      name: "North Field",
+      status: false,
+    });
+    expect(hivesApi.updateHive).toHaveBeenCalledWith("hive-1", payload);
   });
 });

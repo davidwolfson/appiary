@@ -10,12 +10,14 @@ describe("HivesStore", () => {
   let hivesService: {
     createHive: ReturnType<typeof vi.fn>;
     listHives: ReturnType<typeof vi.fn>;
+    updateHive: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
     hivesService = {
       createHive: vi.fn(),
       listHives: vi.fn(),
+      updateHive: vi.fn(),
     };
 
     TestBed.configureTestingModule({
@@ -105,5 +107,63 @@ describe("HivesStore", () => {
     await expect(result).rejects.toBe(error);
     expect(store.createError()).toBe("Hive name already exists");
     expect(store.isCreating()).toBe(false);
+  });
+
+  it("replaces an updated hive without changing list order", async () => {
+    // given the store contains two hives and update returns one changed hive
+    hivesService.listHives.mockResolvedValue([
+      { hiveId: "hive-1", name: "North Field", status: true },
+      { hiveId: "hive-2", name: "South Field", status: false },
+    ]);
+    hivesService.updateHive.mockResolvedValue({
+      hiveId: "hive-1",
+      name: "North Field Updated",
+      status: false,
+    });
+
+    // when the store updates the first hive
+    await store.loadHives();
+    await store.updateHive("hive-1", { name: "North Field Updated", status: false });
+
+    // then the matching hive is replaced in its original position
+    expect(store.hives()).toEqual([
+      { hiveId: "hive-1", name: "North Field Updated", status: false },
+      { hiveId: "hive-2", name: "South Field", status: false },
+    ]);
+    expect(hivesService.updateHive).toHaveBeenCalledWith("hive-1", {
+      name: "North Field Updated",
+      status: false,
+    });
+    expect(store.updateError()).toBeNull();
+    expect(store.isUpdating()).toBe(false);
+  });
+
+  it("sets update errors and rethrows when update fails", async () => {
+    // given the hives service rejects update with an API message
+    const error = { error: { message: "Hive name already exists" } };
+
+    hivesService.updateHive.mockRejectedValue(error);
+
+    // when the store updates a hive
+    const result = store.updateHive("hive-1", { name: "North Field", status: true });
+
+    // then the rejection propagates and update error state is set
+    await expect(result).rejects.toBe(error);
+    expect(store.updateError()).toBe("Hive name already exists");
+    expect(store.isUpdating()).toBe(false);
+  });
+
+  it("clears update errors", async () => {
+    // given the store has an update error
+    hivesService.updateHive.mockRejectedValue({
+      error: { message: "Hive name already exists" },
+    });
+    await expect(store.updateHive("hive-1", { name: "North Field", status: true })).rejects.toBeDefined();
+
+    // when the update error is cleared
+    store.clearUpdateError();
+
+    // then the update error is no longer exposed
+    expect(store.updateError()).toBeNull();
   });
 });

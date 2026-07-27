@@ -1,7 +1,8 @@
-import { Component, EventEmitter, Input, Output, inject } from "@angular/core";
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from "@angular/core";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 
 import type { CreateHiveRequest } from "@appiary/types";
+import type { HiveViewModel } from "./hives.mapper";
 
 @Component({
   selector: "app-edit-hive-modal",
@@ -9,12 +10,15 @@ import type { CreateHiveRequest } from "@appiary/types";
   imports: [ReactiveFormsModule],
   templateUrl: "./edit-hive-modal.component.html",
 })
-export class EditHiveModalComponent {
+export class EditHiveModalComponent implements OnChanges {
   @Input()
   isSaving = false;
 
   @Input()
   error: string | null = null;
+
+  @Input()
+  hive: HiveViewModel | null = null;
 
   @Output()
   readonly save = new EventEmitter<CreateHiveRequest>();
@@ -28,6 +32,16 @@ export class EditHiveModalComponent {
     name: ["", [Validators.required, Validators.maxLength(100)]],
     status: [true],
   });
+
+  protected get title(): string {
+    return this.hive ? "Edit Hive" : "Add Hive";
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if ("hive" in changes) {
+      this.resetForm();
+    }
+  }
 
   close(): void {
     if (this.isSaving) {
@@ -55,8 +69,8 @@ export class EditHiveModalComponent {
 
   resetForm(): void {
     this.form.reset({
-      name: "",
-      status: true,
+      name: this.hive?.name ?? "",
+      status: this.hive?.status ?? true,
     });
   }
 }

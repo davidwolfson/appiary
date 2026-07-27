@@ -5,6 +5,7 @@ import { EditHiveModalComponent } from "./edit-hive-modal.component";
 import { HiveCardComponent } from "./hive-card.component";
 import { HivesStore } from "./hives.store";
 import type { CreateHiveRequest } from "@appiary/types";
+import type { HiveViewModel } from "./hives.mapper";
 
 @Component({
   selector: "app-hives-dashboard",
@@ -16,6 +17,7 @@ export class HivesDashboardComponent implements OnInit {
   protected readonly authStore = inject(AuthStore);
   protected readonly hivesStore = inject(HivesStore);
   protected readonly isModalOpen = signal(false);
+  protected readonly selectedHive = signal<HiveViewModel | null>(null);
 
   ngOnInit(): void {
     void this.hivesStore.loadHives();
@@ -23,19 +25,35 @@ export class HivesDashboardComponent implements OnInit {
 
   protected openAddHiveModal(): void {
     this.hivesStore.clearCreateError();
+    this.hivesStore.clearUpdateError();
+    this.selectedHive.set(null);
+    this.isModalOpen.set(true);
+  }
+
+  protected openEditHiveModal(hive: HiveViewModel): void {
+    this.hivesStore.clearCreateError();
+    this.hivesStore.clearUpdateError();
+    this.selectedHive.set(hive);
     this.isModalOpen.set(true);
   }
 
   protected closeAddHiveModal(): void {
     this.isModalOpen.set(false);
+    this.selectedHive.set(null);
   }
 
-  protected async createHive(payload: CreateHiveRequest): Promise<void> {
+  protected async saveHive(payload: CreateHiveRequest): Promise<void> {
     try {
-      await this.hivesStore.createHive(payload);
+      const selectedHive = this.selectedHive();
+      if (selectedHive) {
+        await this.hivesStore.updateHive(selectedHive.hiveId, payload);
+      } else {
+        await this.hivesStore.createHive(payload);
+      }
       this.isModalOpen.set(false);
+      this.selectedHive.set(null);
     } catch {
-      // Store state carries the create error for the modal.
+      // Store state carries the create/update error for the modal.
     }
   }
 

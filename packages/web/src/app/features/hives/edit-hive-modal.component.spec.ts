@@ -36,6 +36,30 @@ describe("EditHiveModalComponent", () => {
     expect(fixture.nativeElement.textContent).toContain("Status");
   });
 
+  it("renders Add Hive title by default", () => {
+    // given the modal has no selected hive
+    // when the modal view is rendered
+    // then add mode title is visible
+    expect(fixture.nativeElement.textContent).toContain("Add Hive");
+  });
+
+  it("renders Edit Hive title and selected hive values when editing", () => {
+    // given a selected hive is supplied
+    fixture.componentRef.setInput("hive", {
+      hiveId: "hive-1",
+      name: "North Field",
+      status: false,
+    });
+
+    // when the modal view is rendered
+    fixture.detectChanges();
+
+    // then edit mode title and current values are visible
+    expect(fixture.nativeElement.textContent).toContain("Edit Hive");
+    expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).value).toBe("North Field");
+    expect((fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("Inactive");
+  });
+
   it("emits close without saving", () => {
     // given a close listener is subscribed
     const closed = vi.fn();
@@ -88,6 +112,29 @@ describe("EditHiveModalComponent", () => {
       name: "North Field",
       status: false,
     });
+  });
+
+  it("resets to selected hive values when closed in edit mode", () => {
+    // given the edit modal form has been changed
+    const closed = vi.fn();
+    component.closed.subscribe(closed);
+    fixture.componentRef.setInput("hive", {
+      hiveId: "hive-1",
+      name: "North Field",
+      status: false,
+    });
+    fixture.detectChanges();
+    componentApi.form.controls.name.setValue("Changed Name");
+    componentApi.form.controls.status.setValue(true);
+
+    // when the modal is closed
+    component.close();
+    fixture.detectChanges();
+
+    // then the form is restored to the selected hive values
+    expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).value).toBe("North Field");
+    expect((fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("Inactive");
+    expect(closed).toHaveBeenCalled();
   });
 
   it("shows saving state", () => {

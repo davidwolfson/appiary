@@ -15,6 +15,7 @@ describe("HivesDashboardComponent", () => {
   let modalOpen: () => HTMLElement | null;
   let hivesStore: {
     clearCreateError: ReturnType<typeof vi.fn>;
+    clearUpdateError: ReturnType<typeof vi.fn>;
     createError: ReturnType<typeof vi.fn>;
     createHive: ReturnType<typeof vi.fn>;
     error: () => string | null;
@@ -22,7 +23,10 @@ describe("HivesDashboardComponent", () => {
     hives: () => { hiveId: string; name: string; status: boolean }[];
     isCreating: ReturnType<typeof vi.fn>;
     isLoading: () => boolean;
+    isUpdating: ReturnType<typeof vi.fn>;
     loadHives: ReturnType<typeof vi.fn>;
+    updateError: ReturnType<typeof vi.fn>;
+    updateHive: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
@@ -32,6 +36,7 @@ describe("HivesDashboardComponent", () => {
     hasHivesState = signal(false);
     hivesStore = {
       clearCreateError: vi.fn(),
+      clearUpdateError: vi.fn(),
       createError: vi.fn(() => null),
       createHive: vi.fn().mockResolvedValue(undefined),
       error: () => errorState(),
@@ -39,7 +44,10 @@ describe("HivesDashboardComponent", () => {
       hives: () => hivesState(),
       isCreating: vi.fn(() => false),
       isLoading: () => loadingState(),
+      isUpdating: vi.fn(() => false),
       loadHives: vi.fn().mockResolvedValue(undefined),
+      updateError: vi.fn(() => null),
+      updateHive: vi.fn().mockResolvedValue(undefined),
     };
     modalOpen = () => fixture.nativeElement.querySelector("[role='dialog']");
 
@@ -119,6 +127,7 @@ describe("HivesDashboardComponent", () => {
     // then create errors are cleared and the modal opens
     expect(modalOpen()).not.toBeNull();
     expect(hivesStore.clearCreateError).toHaveBeenCalled();
+    expect(hivesStore.clearUpdateError).toHaveBeenCalled();
   });
 
   it("passes successful modal submission to the store", async () => {
@@ -128,14 +137,85 @@ describe("HivesDashboardComponent", () => {
 
     // when valid hive details are submitted
     const component = fixture.componentInstance as never as {
-      createHive: (payload: { name: string; status: boolean }) => Promise<void>;
+      saveHive: (payload: { name: string; status: boolean }) => Promise<void>;
     };
-    await component.createHive({ name: "North Field", status: true });
+    await component.saveHive({ name: "North Field", status: true });
     fixture.detectChanges();
 
     // then the store creates the hive and the modal closes
     expect(hivesStore.createHive).toHaveBeenCalledWith({ name: "North Field", status: true });
     expect(modalOpen()).toBeNull();
+  });
+
+  it("opens the Edit Hive modal from a hive card", () => {
+    // given the store contains an inactive hive
+    hivesState.set([
+      { hiveId: "hive-1", name: "North Field", status: false },
+    ]);
+    hasHivesState.set(true);
+    fixture.detectChanges();
+
+    // when the card edit button is clicked
+    fixture.nativeElement.querySelector("[aria-label='Edit Hive']").click();
+    fixture.detectChanges();
+
+    // then update errors are cleared and the modal is prefilled for editing
+    expect(modalOpen()).not.toBeNull();
+    expect(hivesStore.clearCreateError).toHaveBeenCalled();
+    expect(hivesStore.clearUpdateError).toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain("Edit Hive");
+    expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).value).toBe("North Field");
+    expect((fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("Inactive");
+  });
+
+  it("passes successful edit modal submission to update, not create", async () => {
+    // given the Edit Hive modal is open for a selected hive
+    hivesState.set([
+      { hiveId: "hive-1", name: "North Field", status: true },
+    ]);
+    hasHivesState.set(true);
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector("[aria-label='Edit Hive']").click();
+    fixture.detectChanges();
+
+    // when valid hive details are submitted
+    const component = fixture.componentInstance as never as {
+      saveHive: (payload: { name: string; status: boolean }) => Promise<void>;
+    };
+    await component.saveHive({ name: "North Field Updated", status: false });
+    fixture.detectChanges();
+
+    // then the store updates the selected hive and the modal closes
+    expect(hivesStore.updateHive).toHaveBeenCalledWith("hive-1", {
+      name: "North Field Updated",
+      status: false,
+    });
+    expect(hivesStore.createHive).not.toHaveBeenCalled();
+    expect(modalOpen()).toBeNull();
+  });
+
+  it("keeps the Edit Hive modal open when update fails", async () => {
+    // given update will fail while editing a hive
+    hivesStore.updateHive.mockRejectedValue({ error: { message: "Hive name already exists" } });
+    hivesStore.updateError.mockReturnValue("Hive name already exists");
+    hivesState.set([
+      { hiveId: "hive-1", name: "North Field", status: true },
+    ]);
+    hasHivesState.set(true);
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector("[aria-label='Edit Hive']").click();
+    fixture.detectChanges();
+
+    // when the edit submission fails
+    const component = fixture.componentInstance as never as {
+      saveHive: (payload: { name: string; status: boolean }) => Promise<void>;
+    };
+    await component.saveHive({ name: "North Field", status: true });
+    fixture.detectChanges();
+
+    // then the modal remains open and shows the update error
+    expect(modalOpen()).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain("Hive name already exists");
   });
 
   it("reopens the Add Hive modal with a fresh form after successful create", async () => {
@@ -162,6 +242,56 @@ describe("HivesDashboardComponent", () => {
     // then the new form contains its default values
     expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).value).toBe("");
     expect((fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("Active");
+  });
+
+  it("reopens the Add Hive modal with default values after editing", async () => {
+    // given the Edit Hive modal has been opened and saved
+    hivesState.set([
+      { hiveId: "hive-1", name: "North Field", status: false },
+    ]);
+    hasHivesState.set(true);
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector("[aria-label='Edit Hive']").click();
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance as never as {
+      saveHive: (payload: { name: string; status: boolean }) => Promise<void>;
+    };
+    await component.saveHive({ name: "North Field Updated", status: false });
+    fixture.detectChanges();
+
+    // when the Add Hive modal is opened
+    fixture.nativeElement.querySelector("[aria-label='Add Hive']").click();
+    fixture.detectChanges();
+
+    // then add mode contains its default values
+    expect(fixture.nativeElement.textContent).toContain("Add Hive");
+    expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).value).toBe("");
+    expect((fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("Active");
+  });
+
+  it("does not submit an invalid edit form", async () => {
+    // given the Edit Hive modal is open
+    hivesState.set([
+      { hiveId: "hive-1", name: "North Field", status: true },
+    ]);
+    hasHivesState.set(true);
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector("[aria-label='Edit Hive']").click();
+    fixture.detectChanges();
+
+    // when the form is submitted with a blank name
+    const nameInput = fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement;
+    nameInput.value = "   ";
+    nameInput.dispatchEvent(new Event("input"));
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector("form") as HTMLFormElement).dispatchEvent(new Event("submit"));
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // then no update request is made and validation feedback is visible
+    expect(hivesStore.updateHive).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain("Hive name is required.");
   });
 
   it("displays load errors", () => {

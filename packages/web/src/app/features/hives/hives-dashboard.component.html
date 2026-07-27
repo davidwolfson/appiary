@@ -33,7 +33,7 @@
         <div class="row g-3">
           @for (hive of hivesStore.hives(); track hive.hiveId) {
             <div class="col-12 col-md-6 col-lg-4">
-              <app-hive-card [hive]="hive"></app-hive-card>
+              <app-hive-card [hive]="hive" (edit)="openEditHiveModal($event)"></app-hive-card>
             </div>
           }
         </div>
@@ -44,9 +44,10 @@
 
 @if (isModalOpen()) {
   <app-edit-hive-modal
-    [isSaving]="hivesStore.isCreating()"
-    [error]="hivesStore.createError()"
-    (save)="createHive($event)"
+    [hive]="selectedHive()"
+    [isSaving]="selectedHive() ? hivesStore.isUpdating() : hivesStore.isCreating()"
+    [error]="selectedHive() ? hivesStore.updateError() : hivesStore.createError()"
+    (save)="saveHive($event)"
     (closed)="closeAddHiveModal()"
   ></app-edit-hive-modal>
 }

@@ -1,7 +1,7 @@
 import { Injectable, inject } from "@angular/core";
 import { firstValueFrom } from "rxjs";
 
-import type { CreateHiveRequest } from "@appiary/types";
+import type { CreateHiveRequest, UpdateHiveRequest } from "@appiary/types";
 
 import { HivesApi } from "./hives.api";
 import { mapToHiveViewModel, type HiveViewModel } from "./hives.mapper";
@@ -18,6 +18,12 @@ export class HivesService {
 
   async createHive(payload: CreateHiveRequest): Promise<HiveViewModel> {
     const response = await firstValueFrom(this.hivesApi.createHive(payload));
+
+    return mapToHiveViewModel(response.hive);
+  }
+
+  async updateHive(hiveId: string, payload: UpdateHiveRequest): Promise<HiveViewModel> {
+    const response = await firstValueFrom(this.hivesApi.updateHive(hiveId, payload));
 
     return mapToHiveViewModel(response.hive);
   }
