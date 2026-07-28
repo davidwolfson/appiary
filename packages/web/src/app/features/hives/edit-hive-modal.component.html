@@ -1,5 +1,13 @@
 <div class="modal-backdrop fade show"></div>
-<section class="modal fade show d-block" role="dialog" aria-modal="true" aria-labelledby="edit-hive-title" tabindex="-1">
+<section
+  #dialog
+  class="modal fade show d-block"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="edit-hive-title"
+  tabindex="-1"
+  (keydown)="handleKeydown($event)"
+>
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content border-0 shadow">
       <div class="modal-header">
@@ -15,7 +23,7 @@
 
           <div class="mb-3">
             <label class="form-label" for="hive-name">Hive Name</label>
-            <input id="hive-name" class="form-control" type="text" formControlName="name" maxlength="100" [disabled]="isSaving" autofocus>
+            <input #nameInput id="hive-name" class="form-control" type="text" formControlName="name" maxlength="100" [disabled]="isSaving">
             @if (form.controls.name.touched && form.controls.name.value.trim().length === 0) {
               <div class="invalid-feedback d-block">Hive name is required.</div>
             } @else if (form.controls.name.touched && form.controls.name.hasError("maxlength")) {

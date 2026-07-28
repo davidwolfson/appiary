@@ -12,3 +12,7 @@ export const CreateHiveRequestSchema = z.object({
 });
 
 export const UpdateHiveRequestSchema = CreateHiveRequestSchema;
+
+export const HiveRouteParamsSchema = z.object({
+  hiveId: z.string().uuid("Hive ID must be a valid UUID"),
+});

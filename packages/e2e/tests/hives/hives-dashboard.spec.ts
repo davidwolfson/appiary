@@ -67,8 +67,8 @@ test.describe("hives dashboard", () => {
     await dashboardPage.goto();
 
     // then each hive should be rendered as a card
-    await dashboardPage.expectHiveCard("North Field", "Active");
-    await dashboardPage.expectHiveCard("South Field", "Inactive");
+    await dashboardPage.expectHiveCard("hive-1", "North Field", "Active");
+    await dashboardPage.expectHiveCard("hive-2", "South Field", "Inactive");
   });
 
   test("shows a loading state while hives are loading", async ({ page }) => {
@@ -186,7 +186,7 @@ test.describe("hives dashboard", () => {
 
     // then the modal should close and the created hive should appear
     await expect(dashboardPage.modal).toBeHidden();
-    await dashboardPage.expectHiveCard("South Field", "Inactive");
+    await dashboardPage.expectHiveCard("hive-2", "South Field", "Inactive");
   });
 
   test("shows saving state while create is pending", async ({ page }) => {
@@ -260,8 +260,8 @@ test.describe("hives dashboard", () => {
     await dashboardPage.goto();
 
     // when I click the hive card edit button
-    await expect(dashboardPage.editHiveButton).toHaveAttribute("title", "Edit Hive");
-    await dashboardPage.openEditHiveModal();
+    await expect(dashboardPage.editHiveButton("hive-1")).toHaveAttribute("title", "Edit Hive");
+    await dashboardPage.openEditHiveModal("hive-1");
 
     // then I should see the Edit Hive modal populated with that hive
     await expect(dashboardPage.editHiveModal).toBeVisible();
@@ -269,7 +269,7 @@ test.describe("hives dashboard", () => {
     await expect(dashboardPage.statusSelect).toHaveValue(/false$/);
   });
 
-  test("updates a hive and refreshes its visible card", async ({ page }) => {
+  test("updates the targeted hive without changing other cards", async ({ page }) => {
     const user = createAuthenticatedUser();
     const dashboardPage = createHivesDashboardPage(page);
     const input = createHiveInput({ name: "South Field", status: false });
@@ -281,11 +281,14 @@ test.describe("hives dashboard", () => {
       });
     });
 
-    // given I am authenticated and have opened an existing hive for editing
+    // given I am authenticated and have opened one of multiple hives for editing
     await visitAsAuthenticatedUser(page, user);
-    await mockListHivesRequest(page, [createHive({ hiveId: "hive-1", name: "North Field", status: true })]);
+    await mockListHivesRequest(page, [
+      createHive({ hiveId: "hive-1", name: "North Field", status: true }),
+      createHive({ hiveId: "hive-2", name: "West Field", status: true }),
+    ]);
     await dashboardPage.goto();
-    await dashboardPage.openEditHiveModal();
+    await dashboardPage.openEditHiveModal("hive-1");
 
     // when I submit valid updated hive details
     await dashboardPage.fillForm(input);
@@ -295,10 +298,10 @@ test.describe("hives dashboard", () => {
     await expect.poll(() => requests.length).toBe(1);
     expect(requests[0]).toEqual({ hiveId: "hive-1", payload: input });
 
-    // then the modal should close and the updated hive card should be visible
+    // then the modal should close, the targeted card should update, and the other card should remain unchanged
     await expect(dashboardPage.editHiveModal).toBeHidden();
-    await dashboardPage.expectHiveCard("South Field", "Inactive");
-    await expect(page.getByRole("heading", { name: "North Field" })).toBeHidden();
+    await dashboardPage.expectHiveCard("hive-1", "South Field", "Inactive");
+    await dashboardPage.expectHiveCard("hive-2", "West Field", "Active");
   });
 
   test("keeps the Edit Hive modal open when the update API fails", async ({ page }) => {
@@ -316,7 +319,7 @@ test.describe("hives dashboard", () => {
     await visitAsAuthenticatedUser(page, user);
     await mockListHivesRequest(page, [createHive()]);
     await dashboardPage.goto();
-    await dashboardPage.openEditHiveModal();
+    await dashboardPage.openEditHiveModal("hive-123");
 
     // when the update request fails
     await dashboardPage.fillForm(createHiveInput({ name: "Existing Hive" }));
@@ -338,7 +341,7 @@ test.describe("hives dashboard", () => {
     await visitAsAuthenticatedUser(page, user);
     await mockListHivesRequest(page, [createHive()]);
     await dashboardPage.goto();
-    await dashboardPage.openEditHiveModal();
+    await dashboardPage.openEditHiveModal("hive-123");
 
     // when I clear the hive name and submit
     await dashboardPage.hiveNameInput.fill("");

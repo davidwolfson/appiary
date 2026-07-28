@@ -3,7 +3,11 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth.middleware.js";
 import { HiveRepository } from "../repositories/hive.repository.js";
 import { UserRepository } from "../repositories/user.repository.js";
-import { CreateHiveRequestSchema, UpdateHiveRequestSchema } from "../schemas/hive.schemas.js";
+import {
+  CreateHiveRequestSchema,
+  HiveRouteParamsSchema,
+  UpdateHiveRequestSchema,
+} from "../schemas/hive.schemas.js";
 import { HiveService } from "../services/hive.service.js";
 import { asyncHandler } from "../utils/async-handler.js";
 
@@ -39,11 +43,12 @@ hiveRouter.post("/", asyncHandler(async (req, res) => {
 }));
 
 hiveRouter.put("/:hiveId", asyncHandler<HiveRouteParams>(async (req, res) => {
+  const params = HiveRouteParamsSchema.parse(req.params);
   const input = UpdateHiveRequestSchema.parse(req.body);
 
   const result = await hiveService.updateForAuthenticatedUser({
     authenticatedUserId: req.authenticatedUserId!,
-    hiveId: req.params.hiveId,
+    hiveId: params.hiveId,
     name: input.name,
     status: input.status,
   });

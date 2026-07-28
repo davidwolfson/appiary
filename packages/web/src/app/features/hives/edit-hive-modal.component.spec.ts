@@ -36,6 +36,61 @@ describe("EditHiveModalComponent", () => {
     expect(fixture.nativeElement.textContent).toContain("Status");
   });
 
+  it("moves initial focus to the name field", () => {
+    // given the hive modal has rendered
+    const nameInput = fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement;
+
+    // when the initial focus placement completes
+    fixture.detectChanges();
+
+    // then keyboard focus starts in the name field
+    expect(document.activeElement).toBe(nameInput);
+  });
+
+  it("wraps focus within the dialog", () => {
+    // given focus is on the final enabled control in the dialog
+    const dialog = fixture.nativeElement.querySelector("[role='dialog']") as HTMLElement;
+    const saveButton = fixture.nativeElement.querySelector("button[type='submit']") as HTMLButtonElement;
+    const closeButton = fixture.nativeElement.querySelector("[aria-label='Close']") as HTMLButtonElement;
+    saveButton.focus();
+
+    // when Tab is pressed
+    dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
+
+    // then focus wraps to the first enabled control
+    expect(document.activeElement).toBe(closeButton);
+  });
+
+  it("closes on Escape", () => {
+    // given a close listener is subscribed
+    const closed = vi.fn();
+    component.closed.subscribe(closed);
+
+    // when Escape is pressed within the dialog
+    fixture.nativeElement
+      .querySelector("[role='dialog']")
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+
+    // then the close event is emitted
+    expect(closed).toHaveBeenCalledOnce();
+  });
+
+  it("does not close on Escape while saving", () => {
+    // given the modal is saving
+    const closed = vi.fn();
+    component.closed.subscribe(closed);
+    fixture.componentRef.setInput("isSaving", true);
+    fixture.detectChanges();
+
+    // when Escape is pressed within the dialog
+    fixture.nativeElement
+      .querySelector("[role='dialog']")
+      .dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+
+    // then the close event is not emitted
+    expect(closed).not.toHaveBeenCalled();
+  });
+
   it("renders Add Hive title by default", () => {
     // given the modal has no selected hive
     // when the modal view is rendered

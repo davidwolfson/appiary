@@ -1,4 +1,15 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject } from "@angular/core";
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  OnChanges,
+  Output,
+  SimpleChanges,
+  ViewChild,
+  inject,
+} from "@angular/core";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 
 import type { CreateHiveRequest } from "@appiary/types";
@@ -10,7 +21,13 @@ import type { HiveViewModel } from "./hives.mapper";
   imports: [ReactiveFormsModule],
   templateUrl: "./edit-hive-modal.component.html",
 })
-export class EditHiveModalComponent implements OnChanges {
+export class EditHiveModalComponent implements AfterViewInit, OnChanges {
+  @ViewChild("dialog", { static: true })
+  private readonly dialog!: ElementRef<HTMLElement>;
+
+  @ViewChild("nameInput", { static: true })
+  private readonly nameInput!: ElementRef<HTMLInputElement>;
+
   @Input()
   isSaving = false;
 
@@ -37,6 +54,10 @@ export class EditHiveModalComponent implements OnChanges {
     return this.hive ? "Edit Hive" : "Add Hive";
   }
 
+  ngAfterViewInit(): void {
+    this.nameInput.nativeElement.focus();
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if ("hive" in changes) {
       this.resetForm();
@@ -50,6 +71,37 @@ export class EditHiveModalComponent implements OnChanges {
 
     this.resetForm();
     this.closed.emit();
+  }
+
+  handleKeydown(event: KeyboardEvent): void {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      this.close();
+      return;
+    }
+
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const focusableElements = this.getFocusableElements();
+    if (focusableElements.length === 0) {
+      event.preventDefault();
+      this.dialog.nativeElement.focus();
+      return;
+    }
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    const activeElement = this.dialog.nativeElement.ownerDocument.activeElement;
+
+    if (event.shiftKey && (activeElement === firstElement || !this.dialog.nativeElement.contains(activeElement))) {
+      event.preventDefault();
+      lastElement.focus();
+    } else if (!event.shiftKey && (activeElement === lastElement || !this.dialog.nativeElement.contains(activeElement))) {
+      event.preventDefault();
+      firstElement.focus();
+    }
   }
 
   submit(): void {
@@ -72,5 +124,13 @@ export class EditHiveModalComponent implements OnChanges {
       name: this.hive?.name ?? "",
       status: this.hive?.status ?? true,
     });
+  }
+
+  private getFocusableElements(): HTMLElement[] {
+    return Array.from(
+      this.dialog.nativeElement.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      ),
+    );
   }
 }

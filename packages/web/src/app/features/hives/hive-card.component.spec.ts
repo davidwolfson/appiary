@@ -59,8 +59,10 @@ describe("HiveCardComponent", () => {
 
     // then the edit affordance is exposed with the required label and title
     const editButton = fixture.nativeElement.querySelector("button[aria-label='Edit Hive']") as HTMLButtonElement;
+    const card = fixture.nativeElement.querySelector("article") as HTMLElement;
     expect(editButton).not.toBeNull();
     expect(editButton.title).toBe("Edit Hive");
+    expect(card.dataset["testid"]).toBe("hive-card-hive-1");
   });
 
   it("emits the selected hive when edit is clicked", () => {

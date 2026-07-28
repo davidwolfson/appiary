@@ -407,7 +407,7 @@ describe("createApp", () => {
     // given the hive service can update a hive
     updateForAuthenticatedUserMock.mockResolvedValue({
       hive: {
-        hiveId: "hive-1",
+        hiveId: "37a9a6dc-3030-4be5-9694-f65c5c5f6d1e",
         name: "South Field",
         status: false,
       },
@@ -415,7 +415,7 @@ describe("createApp", () => {
 
     // when updated hive details are put with a padded name
     await withApp(async (baseUrl) => {
-      const response = await fetch(`${baseUrl}/api/hives/hive-1`, {
+      const response = await fetch(`${baseUrl}/api/hives/37a9a6dc-3030-4be5-9694-f65c5c5f6d1e`, {
         method: "PUT",
         headers: {
           "content-type": "application/json",
@@ -430,14 +430,14 @@ describe("createApp", () => {
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toEqual({
         hive: {
-          hiveId: "hive-1",
+          hiveId: "37a9a6dc-3030-4be5-9694-f65c5c5f6d1e",
           name: "South Field",
           status: false,
         },
       });
       expect(updateForAuthenticatedUserMock).toHaveBeenCalledWith({
         authenticatedUserId: "user-1",
-        hiveId: "hive-1",
+        hiveId: "37a9a6dc-3030-4be5-9694-f65c5c5f6d1e",
         name: "South Field",
         status: false,
       });
@@ -448,7 +448,7 @@ describe("createApp", () => {
     // given the hive update payload is invalid
     // when the hive is put
     await withApp(async (baseUrl) => {
-      const response = await fetch(`${baseUrl}/api/hives/hive-1`, {
+      const response = await fetch(`${baseUrl}/api/hives/37a9a6dc-3030-4be5-9694-f65c5c5f6d1e`, {
         method: "PUT",
         headers: {
           "content-type": "application/json",
@@ -468,13 +468,37 @@ describe("createApp", () => {
     });
   });
 
+  it("rejects malformed hive IDs before calling the update service", async () => {
+    // given the hive ID is malformed
+    // when valid hive details are put
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/hives/not-a-uuid`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "South Field",
+          status: false,
+        }),
+      });
+
+      // then parameter validation fails before the hive service is called
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        message: "Validation failed",
+      });
+      expect(updateForAuthenticatedUserMock).not.toHaveBeenCalled();
+    });
+  });
+
   it("maps missing hive errors from hive update routes", async () => {
     // given hive update fails because the hive is missing
     updateForAuthenticatedUserMock.mockRejectedValue(new AppError(404, "Hive not found"));
 
     // when valid hive details are put
     await withApp(async (baseUrl) => {
-      const response = await fetch(`${baseUrl}/api/hives/missing-hive`, {
+      const response = await fetch(`${baseUrl}/api/hives/00000000-0000-4000-8000-000000000000`, {
         method: "PUT",
         headers: {
           "content-type": "application/json",
@@ -499,7 +523,7 @@ describe("createApp", () => {
 
     // when valid hive details are put
     await withApp(async (baseUrl) => {
-      const response = await fetch(`${baseUrl}/api/hives/hive-1`, {
+      const response = await fetch(`${baseUrl}/api/hives/37a9a6dc-3030-4be5-9694-f65c5c5f6d1e`, {
         method: "PUT",
         headers: {
           "content-type": "application/json",
@@ -526,7 +550,7 @@ describe("createApp", () => {
 
     // when valid hive details are put
     await withApp(async (baseUrl) => {
-      const response = await fetch(`${baseUrl}/api/hives/hive-1`, {
+      const response = await fetch(`${baseUrl}/api/hives/37a9a6dc-3030-4be5-9694-f65c5c5f6d1e`, {
         method: "PUT",
         headers: {
           "content-type": "application/json",

@@ -1,6 +1,35 @@
 import { describe, expect, it } from "vitest";
 
-import { CreateHiveRequestSchema, UpdateHiveRequestSchema } from "../../../src/schemas/hive.schemas.js";
+import {
+  CreateHiveRequestSchema,
+  HiveRouteParamsSchema,
+  UpdateHiveRequestSchema,
+} from "../../../src/schemas/hive.schemas.js";
+
+describe("HiveRouteParamsSchema", () => {
+  it("accepts a valid hive UUID", () => {
+    // given valid hive route parameters
+    const input = { hiveId: "37a9a6dc-3030-4be5-9694-f65c5c5f6d1e" };
+
+    // when the parameters are parsed
+    const result = HiveRouteParamsSchema.parse(input);
+
+    // then the hive ID is returned
+    expect(result).toEqual(input);
+  });
+
+  it.each([
+    {},
+    { hiveId: "not-a-uuid" },
+  ])("rejects invalid hive route parameters in %j", (input) => {
+    // given invalid hive route parameters
+    // when the parameters are parsed
+    const result = HiveRouteParamsSchema.safeParse(input);
+
+    // then validation fails
+    expect(result.success).toBe(false);
+  });
+});
 
 describe("CreateHiveRequestSchema", () => {
   it("accepts valid input and trims the name", () => {

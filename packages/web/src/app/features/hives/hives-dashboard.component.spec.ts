@@ -130,6 +130,59 @@ describe("HivesDashboardComponent", () => {
     expect(hivesStore.clearUpdateError).toHaveBeenCalled();
   });
 
+  it("makes the dashboard inert while the modal is open", () => {
+    // given the dashboard is interactive
+    const dashboard = fixture.nativeElement.querySelector(".dashboard-shell") as HTMLElement;
+
+    // when the Add Hive modal is opened
+    fixture.nativeElement.querySelector("[aria-label='Add Hive']").click();
+    fixture.detectChanges();
+
+    // then background dashboard content is inert
+    expect(dashboard.hasAttribute("inert")).toBe(true);
+  });
+
+  it("restores focus to the Add Hive button after closing", async () => {
+    // given the Add Hive button opened the modal
+    const addButton = fixture.nativeElement.querySelector("[aria-label='Add Hive']") as HTMLButtonElement;
+    addButton.focus();
+    addButton.click();
+    fixture.detectChanges();
+
+    // when the modal is cancelled
+    (fixture.nativeElement.querySelector("[aria-label='Close']") as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // then the dashboard is interactive and focus returns to the trigger
+    expect((fixture.nativeElement.querySelector(".dashboard-shell") as HTMLElement).hasAttribute("inert")).toBe(false);
+    expect(document.activeElement).toBe(addButton);
+  });
+
+  it("restores focus to the Edit Hive button after saving", async () => {
+    // given an Edit Hive button opened the modal
+    hivesState.set([
+      { hiveId: "hive-1", name: "North Field", status: true },
+    ]);
+    hasHivesState.set(true);
+    fixture.detectChanges();
+    const editButton = fixture.nativeElement.querySelector("[aria-label='Edit Hive']") as HTMLButtonElement;
+    editButton.focus();
+    editButton.click();
+    fixture.detectChanges();
+
+    // when the hive is saved successfully
+    const component = fixture.componentInstance as never as {
+      saveHive: (payload: { name: string; status: boolean }) => Promise<void>;
+    };
+    await component.saveHive({ name: "North Field Updated", status: false });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // then focus returns to the Edit Hive trigger
+    expect(document.activeElement).toBe(editButton);
+  });
+
   it("passes successful modal submission to the store", async () => {
     // given the Add Hive modal is open
     fixture.nativeElement.querySelector("[aria-label='Add Hive']").click();

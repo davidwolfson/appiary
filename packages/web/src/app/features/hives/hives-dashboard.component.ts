@@ -1,3 +1,4 @@
+import { DOCUMENT } from "@angular/common";
 import { Component, OnInit, inject, signal } from "@angular/core";
 
 import { AuthStore } from "../auth/auth.store";
@@ -14,6 +15,9 @@ import type { HiveViewModel } from "./hives.mapper";
   templateUrl: "./hives-dashboard.component.html",
 })
 export class HivesDashboardComponent implements OnInit {
+  private readonly document = inject(DOCUMENT);
+  private modalTrigger: HTMLElement | null = null;
+
   protected readonly authStore = inject(AuthStore);
   protected readonly hivesStore = inject(HivesStore);
   protected readonly isModalOpen = signal(false);
@@ -24,6 +28,7 @@ export class HivesDashboardComponent implements OnInit {
   }
 
   protected openAddHiveModal(): void {
+    this.captureModalTrigger();
     this.hivesStore.clearCreateError();
     this.hivesStore.clearUpdateError();
     this.selectedHive.set(null);
@@ -31,6 +36,7 @@ export class HivesDashboardComponent implements OnInit {
   }
 
   protected openEditHiveModal(hive: HiveViewModel): void {
+    this.captureModalTrigger();
     this.hivesStore.clearCreateError();
     this.hivesStore.clearUpdateError();
     this.selectedHive.set(hive);
@@ -38,8 +44,7 @@ export class HivesDashboardComponent implements OnInit {
   }
 
   protected closeAddHiveModal(): void {
-    this.isModalOpen.set(false);
-    this.selectedHive.set(null);
+    this.closeModal();
   }
 
   protected async saveHive(payload: CreateHiveRequest): Promise<void> {
@@ -50,8 +55,7 @@ export class HivesDashboardComponent implements OnInit {
       } else {
         await this.hivesStore.createHive(payload);
       }
-      this.isModalOpen.set(false);
-      this.selectedHive.set(null);
+      this.closeModal();
     } catch {
       // Store state carries the create/update error for the modal.
     }
@@ -59,5 +63,26 @@ export class HivesDashboardComponent implements OnInit {
 
   protected async logout(): Promise<void> {
     await this.authStore.logout();
+  }
+
+  private captureModalTrigger(): void {
+    const activeElement = this.document.activeElement;
+    this.modalTrigger = activeElement instanceof HTMLElement ? activeElement : null;
+  }
+
+  private closeModal(): void {
+    const trigger = this.modalTrigger;
+    this.isModalOpen.set(false);
+    this.selectedHive.set(null);
+    this.modalTrigger = null;
+
+    queueMicrotask(() => {
+      if (trigger?.isConnected) {
+        trigger.focus();
+        return;
+      }
+
+      this.document.querySelector<HTMLElement>("[aria-label='Add Hive']")?.focus();
+    });
   }
 }

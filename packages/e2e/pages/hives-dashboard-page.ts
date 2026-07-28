@@ -10,7 +10,6 @@ export function createHivesDashboardPage(page: Page) {
   const emptyState = page.getByRole("heading", { name: "No hives yet" });
   const addHiveModal = page.getByRole("dialog", { name: "Add Hive" });
   const editHiveModal = page.getByRole("dialog", { name: "Edit Hive" });
-  const editHiveButton = page.getByRole("button", { name: "Edit Hive" });
   const hiveNameInput = page.getByLabel("Hive Name");
   const statusSelect = page.getByLabel("Status");
   const saveButton = page.getByRole("button", { name: "Save Hive" });
@@ -18,6 +17,8 @@ export function createHivesDashboardPage(page: Page) {
   const cancelButton = page.getByRole("button", { name: "Cancel" });
   const alert = page.getByRole("alert");
   const loadingStatus = page.getByRole("status");
+  const hiveCard = (hiveId: string) => page.getByTestId(`hive-card-${hiveId}`);
+  const editHiveButton = (hiveId: string) => hiveCard(hiveId).getByRole("button", { name: "Edit Hive" });
 
   return {
     addHiveButton,
@@ -26,6 +27,7 @@ export function createHivesDashboardPage(page: Page) {
     modal: addHiveModal,
     addHiveModal,
     editHiveModal,
+    hiveCard,
     editHiveButton,
     hiveNameInput,
     statusSelect,
@@ -43,16 +45,17 @@ export function createHivesDashboardPage(page: Page) {
       await expect(addHiveButton).toBeVisible();
       await expect(logoutButton).toBeVisible();
     },
-    async expectHiveCard(name: string, status: "Active" | "Inactive"): Promise<void> {
-      await expect(page.getByRole("heading", { name })).toBeVisible();
-      await expect(page.getByText(status, { exact: true })).toBeVisible();
+    async expectHiveCard(hiveId: string, name: string, status: "Active" | "Inactive"): Promise<void> {
+      const card = hiveCard(hiveId);
+      await expect(card.getByRole("heading", { name, exact: true })).toBeVisible();
+      await expect(card.getByText(status, { exact: true })).toBeVisible();
     },
     async openAddHiveModal(): Promise<void> {
       await addHiveButton.click();
       await expect(addHiveModal).toBeVisible();
     },
-    async openEditHiveModal(): Promise<void> {
-      await editHiveButton.click();
+    async openEditHiveModal(hiveId: string): Promise<void> {
+      await editHiveButton(hiveId).click();
       await expect(editHiveModal).toBeVisible();
     },
     async fillForm(payload: CreateHiveRequest | UpdateHiveRequest): Promise<void> {
