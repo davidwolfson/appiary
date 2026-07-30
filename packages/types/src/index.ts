@@ -3,6 +3,8 @@ export type {
   CreateHiveResponse,
   HiveResponse,
   ListHivesResponse,
+  UpdateHiveRequest,
+  UpdateHiveResponse,
 } from "./hive";
 
 export type { 

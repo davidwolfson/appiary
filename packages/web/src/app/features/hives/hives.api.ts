@@ -1,7 +1,13 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable, inject } from "@angular/core";
 
-import type { CreateHiveRequest, CreateHiveResponse, ListHivesResponse } from "@appiary/types";
+import type {
+  CreateHiveRequest,
+  CreateHiveResponse,
+  ListHivesResponse,
+  UpdateHiveRequest,
+  UpdateHiveResponse,
+} from "@appiary/types";
 
 import { apiConfig } from "../../core/api/api.config";
 
@@ -16,5 +22,9 @@ export class HivesApi {
 
   createHive(payload: CreateHiveRequest) {
     return this.http.post<CreateHiveResponse>(this.hivesUrl, payload);
+  }
+
+  updateHive(hiveId: string, payload: UpdateHiveRequest) {
+    return this.http.put<UpdateHiveResponse>(`${this.hivesUrl}/${hiveId}`, payload);
   }
 }

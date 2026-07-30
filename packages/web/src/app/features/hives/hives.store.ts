@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from "@angular/core";
 
-import type { CreateHiveRequest } from "@appiary/types";
+import type { CreateHiveRequest, UpdateHiveRequest } from "@appiary/types";
 
 import { HivesService } from "./hives.service";
 import type { HiveViewModel } from "./hives.mapper";
@@ -23,14 +23,18 @@ export class HivesStore {
   private readonly hivesState = signal<HiveViewModel[]>([]);
   private readonly loadingState = signal(false);
   private readonly creatingState = signal(false);
+  private readonly updatingState = signal(false);
   private readonly errorState = signal<string | null>(null);
   private readonly createErrorState = signal<string | null>(null);
+  private readonly updateErrorState = signal<string | null>(null);
 
   readonly hives = this.hivesState.asReadonly();
   readonly isLoading = this.loadingState.asReadonly();
   readonly isCreating = this.creatingState.asReadonly();
+  readonly isUpdating = this.updatingState.asReadonly();
   readonly error = this.errorState.asReadonly();
   readonly createError = this.createErrorState.asReadonly();
+  readonly updateError = this.updateErrorState.asReadonly();
   readonly hasHives = computed(() => this.hivesState().length > 0);
 
   async loadHives(): Promise<void> {
@@ -64,11 +68,32 @@ export class HivesStore {
     }
   }
 
+  async updateHive(hiveId: string, payload: UpdateHiveRequest): Promise<void> {
+    this.updatingState.set(true);
+    this.updateErrorState.set(null);
+
+    try {
+      const updatedHive = await this.hivesService.updateHive(hiveId, payload);
+      this.hivesState.update((hives) => hives.map((hive) => (
+        hive.hiveId === hiveId ? updatedHive : hive
+      )));
+    } catch (error) {
+      this.updateErrorState.set(extractErrorMessage(error));
+      throw error;
+    } finally {
+      this.updatingState.set(false);
+    }
+  }
+
   clearError(): void {
     this.errorState.set(null);
   }
 
   clearCreateError(): void {
     this.createErrorState.set(null);
+  }
+
+  clearUpdateError(): void {
+    this.updateErrorState.set(null);
   }
 }

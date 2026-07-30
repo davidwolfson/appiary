@@ -1,7 +1,14 @@
 import { expect, test } from "@playwright/test";
 
 import { createAuthenticatedUser, visitAsAuthenticatedUser } from "../../helpers/auth";
-import { createHive, createHiveInput, mockCreateHiveRequest, mockListHivesRequest } from "../../helpers/hives";
+import {
+  createHive,
+  createHiveInput,
+  mockCreateHiveRequest,
+  mockListHivesRequest,
+  mockUpdateHiveRequest,
+} from "../../helpers/hives";
+import { expectNoRequests } from "../../helpers/requests";
 import { routes } from "../../helpers/routes";
 import { createHivesDashboardPage } from "../../pages/hives-dashboard-page";
 
@@ -61,8 +68,8 @@ test.describe("hives dashboard", () => {
     await dashboardPage.goto();
 
     // then each hive should be rendered as a card
-    await dashboardPage.expectHiveCard("North Field", "Active");
-    await dashboardPage.expectHiveCard("South Field", "Inactive");
+    await dashboardPage.expectHiveCard("hive-1", "North Field", "Active");
+    await dashboardPage.expectHiveCard("hive-2", "South Field", "Inactive");
   });
 
   test("shows a loading state while hives are loading", async ({ page }) => {
@@ -84,14 +91,15 @@ test.describe("hives dashboard", () => {
       });
     });
 
-    // when I navigate to the dashboard
-    await dashboardPage.goto();
+    try {
+      // when I navigate to the dashboard
+      await dashboardPage.goto();
 
-    // then I should see a loading status
-    await expect(dashboardPage.loadingStatus).toHaveText("Loading hives...");
-
-    resolveRequest();
-    await expect(dashboardPage.emptyState).toBeVisible();
+      // then I should see a loading status
+      await expect(dashboardPage.loadingStatus).toHaveText("Loading hives...");
+    } finally {
+      resolveRequest();
+    }
   });
 
   test("shows an error when the hives API fails", async ({ page }) => {
@@ -146,9 +154,11 @@ test.describe("hives dashboard", () => {
     // when I submit with an empty name
     await dashboardPage.submit();
 
-    // then no create request should be sent
-    expect(requests).toHaveLength(0);
+    // then validation should be visible, the modal should remain open, and no create request should be sent
     await expect(page.getByText("Hive name is required.")).toBeVisible();
+    await expect(dashboardPage.addHiveModal).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    await expectNoRequests(requests);
   });
 
   test("creates a hive and appends it to the dashboard", async ({ page }) => {
@@ -180,7 +190,7 @@ test.describe("hives dashboard", () => {
 
     // then the modal should close and the created hive should appear
     await expect(dashboardPage.modal).toBeHidden();
-    await dashboardPage.expectHiveCard("South Field", "Inactive");
+    await dashboardPage.expectHiveCard("hive-2", "South Field", "Inactive");
   });
 
   test("shows saving state while create is pending", async ({ page }) => {
@@ -205,15 +215,16 @@ test.describe("hives dashboard", () => {
     await dashboardPage.goto();
     await dashboardPage.openAddHiveModal();
 
-    // when I submit valid hive details and the request is pending
-    await dashboardPage.fillForm(createHiveInput());
-    await dashboardPage.submit();
+    try {
+      // when I submit valid hive details and the request is pending
+      await dashboardPage.fillForm(createHiveInput());
+      await dashboardPage.submit();
 
-    // then the submit button should show a saving state
-    await expect(dashboardPage.savingButton).toBeDisabled();
-
-    resolveRequest();
-    await expect(dashboardPage.modal).toBeHidden();
+      // then the submit button should show a saving state
+      await expect(dashboardPage.savingButton).toBeDisabled();
+    } finally {
+      resolveRequest();
+    }
   });
 
   test("keeps the modal open and shows API errors", async ({ page }) => {
@@ -240,5 +251,111 @@ test.describe("hives dashboard", () => {
     // then the modal should remain open with the API error
     await expect(dashboardPage.modal).toBeVisible();
     await expect(dashboardPage.alert).toHaveText("Hive name already exists");
+  });
+
+  test("opens the Edit Hive modal populated from a hive card", async ({ page }) => {
+    const user = createAuthenticatedUser();
+    const dashboardPage = createHivesDashboardPage(page);
+
+    // given I am authenticated and have an inactive hive
+    await visitAsAuthenticatedUser(page, user);
+    await mockListHivesRequest(page, [
+      createHive({ hiveId: "hive-1", name: "North Field", status: false }),
+    ]);
+    await dashboardPage.goto();
+
+    // when I click the hive card edit button
+    await expect(dashboardPage.editHiveButton("hive-1")).toHaveAttribute("title", "Edit Hive");
+    await dashboardPage.openEditHiveModal("hive-1");
+
+    // then I should see the Edit Hive modal populated with that hive
+    await expect(dashboardPage.editHiveModal).toBeVisible();
+    await expect(dashboardPage.hiveNameInput).toHaveValue("North Field");
+    await expect(dashboardPage.statusSelect).toHaveValue(/false$/);
+  });
+
+  test("updates the targeted hive without changing other cards", async ({ page }) => {
+    const user = createAuthenticatedUser();
+    const dashboardPage = createHivesDashboardPage(page);
+    const input = createHiveInput({ name: "South Field", status: false });
+    const { requests } = await mockUpdateHiveRequest(page, async (route, hiveId, payload) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ hive: createHive({ hiveId, ...payload }) }),
+      });
+    });
+
+    // given I am authenticated and have opened one of multiple hives for editing
+    await visitAsAuthenticatedUser(page, user);
+    await mockListHivesRequest(page, [
+      createHive({ hiveId: "hive-1", name: "North Field", status: true }),
+      createHive({ hiveId: "hive-2", name: "West Field", status: true }),
+    ]);
+    await dashboardPage.goto();
+    await dashboardPage.openEditHiveModal("hive-1");
+
+    // when I submit valid updated hive details
+    await dashboardPage.fillForm(input);
+    await dashboardPage.submit();
+
+    // then the update request should target the selected hive with the edited payload
+    await expect.poll(() => requests.length).toBe(1);
+    expect(requests[0]).toEqual({ hiveId: "hive-1", payload: input });
+
+    // then the modal should close, the targeted card should update, and the other card should remain unchanged
+    await expect(dashboardPage.editHiveModal).toBeHidden();
+    await dashboardPage.expectHiveCard("hive-1", "South Field", "Inactive");
+    await dashboardPage.expectHiveCard("hive-2", "West Field", "Active");
+  });
+
+  test("keeps the Edit Hive modal open when the update API fails", async ({ page }) => {
+    const user = createAuthenticatedUser();
+    const dashboardPage = createHivesDashboardPage(page);
+    await mockUpdateHiveRequest(page, async (route) => {
+      await route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "Hive name already exists" }),
+      });
+    });
+
+    // given I am authenticated and have opened an existing hive for editing
+    await visitAsAuthenticatedUser(page, user);
+    await mockListHivesRequest(page, [createHive()]);
+    await dashboardPage.goto();
+    await dashboardPage.openEditHiveModal("hive-123");
+
+    // when the update request fails
+    await dashboardPage.fillForm(createHiveInput({ name: "Existing Hive" }));
+    await dashboardPage.submit();
+
+    // then the Edit Hive modal should remain open with the API error
+    await expect(dashboardPage.editHiveModal).toBeVisible();
+    await expect(dashboardPage.alert).toHaveText("Hive name already exists");
+  });
+
+  test("does not submit invalid Edit Hive input", async ({ page }) => {
+    const user = createAuthenticatedUser();
+    const dashboardPage = createHivesDashboardPage(page);
+    const { requests } = await mockUpdateHiveRequest(page, async (route) => {
+      await route.abort();
+    });
+
+    // given I am authenticated and have opened an existing hive for editing
+    await visitAsAuthenticatedUser(page, user);
+    await mockListHivesRequest(page, [createHive()]);
+    await dashboardPage.goto();
+    await dashboardPage.openEditHiveModal("hive-123");
+
+    // when I clear the hive name and submit
+    await dashboardPage.hiveNameInput.fill("");
+    await dashboardPage.submit();
+
+    // then no update request should be sent and validation should be visible
+    await expect(page.getByText("Hive name is required.")).toBeVisible();
+    await expect(dashboardPage.editHiveModal).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    await expectNoRequests(requests);
   });
 });

@@ -58,6 +58,35 @@ export class HiveRepository {
     return result.rows.map((row) => this.mapHive(row));
   }
 
+  async update(input: { accountId: string; hiveId: string; name: string; status: boolean }): Promise<HiveModel | null> {
+    try {
+      const result = await database.query<HiveRow>(
+        `UPDATE hives
+         SET name = $3,
+             status = $4,
+             updated_at = NOW()
+         WHERE account_id = $1
+           AND hive_id = $2
+         RETURNING hive_id, account_id, name, status, created_at, updated_at`,
+        [input.accountId, input.hiveId, input.name, input.status],
+      );
+
+      const row = result.rows[0];
+
+      if (!row) {
+        return null;
+      }
+
+      return this.mapHive(row);
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new DuplicateHiveNameError();
+      }
+
+      throw error;
+    }
+  }
+
   private mapHive(row: HiveRow): HiveModel {
     return {
       hiveId: row.hive_id,

@@ -10,3 +10,9 @@ export const CreateHiveRequestSchema = z.object({
     invalid_type_error: "Status must be true or false",
   }),
 });
+
+export const UpdateHiveRequestSchema = CreateHiveRequestSchema;
+
+export const HiveRouteParamsSchema = z.object({
+  hiveId: z.string().uuid("Hive ID must be a valid UUID"),
+});

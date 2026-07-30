@@ -68,6 +68,15 @@ body {
   line-height: 1;
 }
 
+.edit-hive-button {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
 .hive-card,
 .empty-state {
   background: var(--app-panel);

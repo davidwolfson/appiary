@@ -1,7 +1,19 @@
-import { Component, EventEmitter, Input, Output, inject } from "@angular/core";
+import {
+  AfterViewInit,
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  OnChanges,
+  Output,
+  SimpleChanges,
+  ViewChild,
+  inject,
+} from "@angular/core";
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 
 import type { CreateHiveRequest } from "@appiary/types";
+import type { HiveViewModel } from "./hives.mapper";
 
 @Component({
   selector: "app-edit-hive-modal",
@@ -9,12 +21,21 @@ import type { CreateHiveRequest } from "@appiary/types";
   imports: [ReactiveFormsModule],
   templateUrl: "./edit-hive-modal.component.html",
 })
-export class EditHiveModalComponent {
+export class EditHiveModalComponent implements AfterViewInit, OnChanges {
+  @ViewChild("dialog", { static: true })
+  private readonly dialog!: ElementRef<HTMLElement>;
+
+  @ViewChild("nameInput", { static: true })
+  private readonly nameInput!: ElementRef<HTMLInputElement>;
+
   @Input()
   isSaving = false;
 
   @Input()
   error: string | null = null;
+
+  @Input()
+  hive: HiveViewModel | null = null;
 
   @Output()
   readonly save = new EventEmitter<CreateHiveRequest>();
@@ -29,6 +50,28 @@ export class EditHiveModalComponent {
     status: [true],
   });
 
+  protected get title(): string {
+    return this.hive ? "Edit Hive" : "Add Hive";
+  }
+
+  ngAfterViewInit(): void {
+    this.nameInput.nativeElement.focus();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if ("hive" in changes) {
+      this.resetForm();
+    }
+
+    if ("isSaving" in changes) {
+      if (this.isSaving) {
+        this.form.disable({ emitEvent: false });
+      } else {
+        this.form.enable({ emitEvent: false });
+      }
+    }
+  }
+
   close(): void {
     if (this.isSaving) {
       return;
@@ -38,7 +81,42 @@ export class EditHiveModalComponent {
     this.closed.emit();
   }
 
+  handleKeydown(event: KeyboardEvent): void {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      this.close();
+      return;
+    }
+
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const focusableElements = this.getFocusableElements();
+    if (focusableElements.length === 0) {
+      event.preventDefault();
+      this.dialog.nativeElement.focus();
+      return;
+    }
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    const activeElement = this.dialog.nativeElement.ownerDocument.activeElement;
+
+    if (event.shiftKey && (activeElement === firstElement || !this.dialog.nativeElement.contains(activeElement))) {
+      event.preventDefault();
+      lastElement.focus();
+    } else if (!event.shiftKey && (activeElement === lastElement || !this.dialog.nativeElement.contains(activeElement))) {
+      event.preventDefault();
+      firstElement.focus();
+    }
+  }
+
   submit(): void {
+    if (this.isSaving) {
+      return;
+    }
+
     const trimmedName = this.form.controls.name.value.trim();
     this.form.controls.name.setValue(trimmedName);
 
@@ -55,8 +133,16 @@ export class EditHiveModalComponent {
 
   resetForm(): void {
     this.form.reset({
-      name: "",
-      status: true,
+      name: this.hive?.name ?? "",
+      status: this.hive?.status ?? true,
     });
+  }
+
+  private getFocusableElements(): HTMLElement[] {
+    return Array.from(
+      this.dialog.nativeElement.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      ),
+    );
   }
 }
