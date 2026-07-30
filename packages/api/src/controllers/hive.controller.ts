@@ -1,5 +1,6 @@
 import { Router } from "express";
 
+import { mapToHiveResponse } from "../mappers/hive.mapper.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
 import { HiveRepository } from "../repositories/hive.repository.js";
 import { UserRepository } from "../repositories/user.repository.js";
@@ -27,7 +28,9 @@ hiveRouter.use(requireAuth);
 hiveRouter.get("/", asyncHandler(async (req, res) => {
   const result = await hiveService.listForAuthenticatedUser(req.authenticatedUserId!);
 
-  res.status(200).json(result);
+  res.status(200).json({
+    hives: result.hives.map(mapToHiveResponse),
+  });
 }));
 
 hiveRouter.post("/", asyncHandler(async (req, res) => {
@@ -39,7 +42,9 @@ hiveRouter.post("/", asyncHandler(async (req, res) => {
     status: input.status,
   });
 
-  res.status(201).json(result);
+  res.status(201).json({
+    hive: mapToHiveResponse(result.hive),
+  });
 }));
 
 hiveRouter.put("/:hiveId", asyncHandler<HiveRouteParams>(async (req, res) => {
@@ -53,5 +58,7 @@ hiveRouter.put("/:hiveId", asyncHandler<HiveRouteParams>(async (req, res) => {
     status: input.status,
   });
 
-  res.status(200).json(result);
+  res.status(200).json({
+    hive: mapToHiveResponse(result.hive),
+  });
 }));

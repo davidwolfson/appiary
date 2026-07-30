@@ -23,7 +23,7 @@
 
           <div class="mb-3">
             <label class="form-label" for="hive-name">Hive Name</label>
-            <input #nameInput id="hive-name" class="form-control" type="text" formControlName="name" maxlength="100" [disabled]="isSaving">
+            <input #nameInput id="hive-name" class="form-control" type="text" formControlName="name" maxlength="100">
             @if (form.controls.name.touched && form.controls.name.value.trim().length === 0) {
               <div class="invalid-feedback d-block">Hive name is required.</div>
             } @else if (form.controls.name.touched && form.controls.name.hasError("maxlength")) {
@@ -33,7 +33,7 @@
 
           <div class="mb-0">
             <label class="form-label" for="hive-status">Status</label>
-            <select id="hive-status" class="form-select" formControlName="status" [disabled]="isSaving">
+            <select id="hive-status" class="form-select" formControlName="status">
               <option [ngValue]="true">Active</option>
               <option [ngValue]="false">Inactive</option>
             </select>

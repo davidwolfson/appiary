@@ -1,13 +1,17 @@
-import type { HiveResponse } from "@appiary/types";
-
 export interface CreateHiveAction {
   authenticatedUserId: string;
   name: string;
   status: boolean;
 }
 
+export interface HiveResult {
+  hiveId: string;
+  name: string;
+  status: boolean;
+}
+
 export interface CreateHiveResult {
-  hive: HiveResponse;
+  hive: HiveResult;
 }
 
 export interface UpdateHiveAction {
@@ -18,9 +22,9 @@ export interface UpdateHiveAction {
 }
 
 export interface UpdateHiveResult {
-  hive: HiveResponse;
+  hive: HiveResult;
 }
 
 export interface ListHivesResult {
-  hives: HiveResponse[];
+  hives: HiveResult[];
 }

@@ -9,9 +9,10 @@ describe("EditHiveModalComponent", () => {
   let component: EditHiveModalComponent;
   let componentApi: {
     form: {
+      disabled: boolean;
       controls: {
-        name: { setValue: (value: string) => void };
-        status: { setValue: (value: boolean) => void };
+        name: { disabled: boolean; setValue: (value: string) => void };
+        status: { disabled: boolean; setValue: (value: boolean) => void };
       };
     };
   };
@@ -201,6 +202,80 @@ describe("EditHiveModalComponent", () => {
 
     // then saving feedback is visible
     expect(fixture.nativeElement.textContent).toContain("Saving...");
+  });
+
+  it("disables and re-enables the form fields with the saving state", () => {
+    // given the modal is saving
+    fixture.componentRef.setInput("isSaving", true);
+    fixture.detectChanges();
+    const nameInput = fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement;
+    const statusSelect = fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement;
+
+    // then both the reactive controls and native fields are disabled
+    expect(componentApi.form.disabled).toBe(true);
+    expect(componentApi.form.controls.name.disabled).toBe(true);
+    expect(componentApi.form.controls.status.disabled).toBe(true);
+    expect(nameInput.disabled).toBe(true);
+    expect(statusSelect.disabled).toBe(true);
+
+    // when saving finishes
+    fixture.componentRef.setInput("isSaving", false);
+    fixture.detectChanges();
+
+    // then the form fields are interactive again
+    expect(componentApi.form.disabled).toBe(false);
+    expect(componentApi.form.controls.name.disabled).toBe(false);
+    expect(componentApi.form.controls.status.disabled).toBe(false);
+    expect(nameInput.disabled).toBe(false);
+    expect(statusSelect.disabled).toBe(false);
+  });
+
+  it("keeps the form disabled when selected hive values reset while saving", () => {
+    // given the modal is saving
+    fixture.componentRef.setInput("isSaving", true);
+    fixture.detectChanges();
+
+    // when the selected hive changes
+    fixture.componentRef.setInput("hive", {
+      hiveId: "hive-1",
+      name: "North Field",
+      status: false,
+    });
+    fixture.detectChanges();
+
+    // then the new values are populated without unlocking the form
+    expect(componentApi.form.disabled).toBe(true);
+    expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).value).toBe("North Field");
+    expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).disabled).toBe(true);
+    expect((fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement).disabled).toBe(true);
+  });
+
+  it("moves focus to the dialog when no controls are enabled while saving", () => {
+    // given every interactive control is disabled by the saving state
+    fixture.componentRef.setInput("isSaving", true);
+    fixture.detectChanges();
+    const dialog = fixture.nativeElement.querySelector("[role='dialog']") as HTMLElement;
+
+    // when Tab is pressed
+    dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
+
+    // then focus remains contained by the dialog
+    expect(document.activeElement).toBe(dialog);
+  });
+
+  it("does not emit a save while saving", () => {
+    // given the modal has a valid form and is already saving
+    const save = vi.fn();
+    component.save.subscribe(save);
+    componentApi.form.controls.name.setValue("North Field");
+    fixture.componentRef.setInput("isSaving", true);
+    fixture.detectChanges();
+
+    // when submission is invoked programmatically
+    component.submit();
+
+    // then a duplicate save is not emitted
+    expect(save).not.toHaveBeenCalled();
   });
 
   it("shows create error feedback", () => {

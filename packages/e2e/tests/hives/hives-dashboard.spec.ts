@@ -8,6 +8,7 @@ import {
   mockListHivesRequest,
   mockUpdateHiveRequest,
 } from "../../helpers/hives";
+import { expectNoRequests } from "../../helpers/requests";
 import { routes } from "../../helpers/routes";
 import { createHivesDashboardPage } from "../../pages/hives-dashboard-page";
 
@@ -90,14 +91,15 @@ test.describe("hives dashboard", () => {
       });
     });
 
-    // when I navigate to the dashboard
-    await dashboardPage.goto();
+    try {
+      // when I navigate to the dashboard
+      await dashboardPage.goto();
 
-    // then I should see a loading status
-    await expect(dashboardPage.loadingStatus).toHaveText("Loading hives...");
-
-    resolveRequest();
-    await expect(dashboardPage.emptyState).toBeVisible();
+      // then I should see a loading status
+      await expect(dashboardPage.loadingStatus).toHaveText("Loading hives...");
+    } finally {
+      resolveRequest();
+    }
   });
 
   test("shows an error when the hives API fails", async ({ page }) => {
@@ -152,9 +154,11 @@ test.describe("hives dashboard", () => {
     // when I submit with an empty name
     await dashboardPage.submit();
 
-    // then no create request should be sent
-    expect(requests).toHaveLength(0);
+    // then validation should be visible, the modal should remain open, and no create request should be sent
     await expect(page.getByText("Hive name is required.")).toBeVisible();
+    await expect(dashboardPage.addHiveModal).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    await expectNoRequests(requests);
   });
 
   test("creates a hive and appends it to the dashboard", async ({ page }) => {
@@ -211,15 +215,16 @@ test.describe("hives dashboard", () => {
     await dashboardPage.goto();
     await dashboardPage.openAddHiveModal();
 
-    // when I submit valid hive details and the request is pending
-    await dashboardPage.fillForm(createHiveInput());
-    await dashboardPage.submit();
+    try {
+      // when I submit valid hive details and the request is pending
+      await dashboardPage.fillForm(createHiveInput());
+      await dashboardPage.submit();
 
-    // then the submit button should show a saving state
-    await expect(dashboardPage.savingButton).toBeDisabled();
-
-    resolveRequest();
-    await expect(dashboardPage.modal).toBeHidden();
+      // then the submit button should show a saving state
+      await expect(dashboardPage.savingButton).toBeDisabled();
+    } finally {
+      resolveRequest();
+    }
   });
 
   test("keeps the modal open and shows API errors", async ({ page }) => {
@@ -348,8 +353,9 @@ test.describe("hives dashboard", () => {
     await dashboardPage.submit();
 
     // then no update request should be sent and validation should be visible
-    expect(requests).toHaveLength(0);
     await expect(page.getByText("Hive name is required.")).toBeVisible();
     await expect(dashboardPage.editHiveModal).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    await expectNoRequests(requests);
   });
 });

@@ -290,6 +290,7 @@ describe("createApp", () => {
           hiveId: "hive-1",
           name: "North Field",
           status: true,
+          accountId: "account-1",
         },
       ],
     });
@@ -321,6 +322,7 @@ describe("createApp", () => {
         hiveId: "hive-1",
         name: "North Field",
         status: true,
+        accountId: "account-1",
       },
     });
 
@@ -410,6 +412,7 @@ describe("createApp", () => {
         hiveId: "37a9a6dc-3030-4be5-9694-f65c5c5f6d1e",
         name: "South Field",
         status: false,
+        accountId: "account-1",
       },
     });
 

@@ -62,6 +62,14 @@ export class EditHiveModalComponent implements AfterViewInit, OnChanges {
     if ("hive" in changes) {
       this.resetForm();
     }
+
+    if ("isSaving" in changes) {
+      if (this.isSaving) {
+        this.form.disable({ emitEvent: false });
+      } else {
+        this.form.enable({ emitEvent: false });
+      }
+    }
   }
 
   close(): void {
@@ -105,6 +113,10 @@ export class EditHiveModalComponent implements AfterViewInit, OnChanges {
   }
 
   submit(): void {
+    if (this.isSaving) {
+      return;
+    }
+
     const trimmedName = this.form.controls.name.value.trim();
     this.form.controls.name.setValue(trimmedName);
 

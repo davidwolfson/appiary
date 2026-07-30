@@ -1,9 +1,14 @@
-import type { HiveResponse } from "@appiary/types";
-
 import type { HiveModel } from "../models/hive.model.js";
 import { DuplicateHiveNameError, HiveRepository } from "../repositories/hive.repository.js";
 import { UserRepository } from "../repositories/user.repository.js";
-import type { CreateHiveAction, CreateHiveResult, ListHivesResult, UpdateHiveAction, UpdateHiveResult } from "../types/hive.types.js";
+import type {
+  CreateHiveAction,
+  CreateHiveResult,
+  HiveResult,
+  ListHivesResult,
+  UpdateHiveAction,
+  UpdateHiveResult,
+} from "../types/hive.types.js";
 import { AppError } from "../utils/app-error.js";
 
 export class HiveService {
@@ -17,7 +22,7 @@ export class HiveService {
     const hives = await this.hiveRepository.findByAccountId(accountId);
 
     return {
-      hives: hives.map((hive) => this.mapHiveResponse(hive)),
+      hives: hives.map((hive) => this.mapHiveResult(hive)),
     };
   }
 
@@ -40,7 +45,7 @@ export class HiveService {
     }
 
     return {
-      hive: this.mapHiveResponse(hive),
+      hive: this.mapHiveResult(hive),
     };
   }
 
@@ -68,7 +73,7 @@ export class HiveService {
     }
 
     return {
-      hive: this.mapHiveResponse(hive),
+      hive: this.mapHiveResult(hive),
     };
   }
 
@@ -82,7 +87,7 @@ export class HiveService {
     return user.accountId;
   }
 
-  private mapHiveResponse(hive: HiveModel): HiveResponse {
+  private mapHiveResult(hive: HiveModel): HiveResult {
     return {
       hiveId: hive.hiveId,
       name: hive.name,
