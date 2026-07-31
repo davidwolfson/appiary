@@ -436,6 +436,31 @@ test.describe("hives dashboard", () => {
     await expect(dashboardPage.hiveCard("hive-456").getByRole("table")).toHaveCount(0);
   });
 
+  test("does not submit an inspection without its required date and time", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const { requests } = await mockCreateInspectionRequest(page, async (route) => {
+      await route.abort();
+    });
+
+    // given I have opened Add Inspection for a hive
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [createHive()]);
+    await dashboardPage.goto();
+    await dashboardPage.openAddInspectionModal("hive-123");
+
+    // when I clear the required date and time and save
+    await dashboardPage.inspectionDateInput.fill("");
+    await dashboardPage.inspectionTimeInput.fill("");
+    await dashboardPage.saveInspectionButton.click();
+
+    // then validation is visible without sending a request or leaving the modal
+    await expect(dashboardPage.inspectionModal.getByText("Inspection date is required.")).toBeVisible();
+    await expect(dashboardPage.inspectionModal.getByText("Inspection time is required.")).toBeVisible();
+    await expect(dashboardPage.inspectionModal).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    await expectNoRequests(requests);
+  });
+
   test("prevents duplicate inspection submission while saving", async ({ page }) => {
     const dashboardPage = createHivesDashboardPage(page);
     let release!: () => void;

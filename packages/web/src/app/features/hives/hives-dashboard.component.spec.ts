@@ -388,25 +388,19 @@ describe("HivesDashboardComponent", () => {
     expect(fixture.nativeElement.textContent).not.toContain("North Field");
   });
 
-  it("clears a failed create error before opening a historical inspection", async () => {
+  it("clears a failed create error before opening a historical inspection", () => {
+    // given a hive has history while a stale inspection error is stored
     const inspection = { inspectionId: "inspection-1", hiveId: "hive-1", inspectionDate: "2026-07-30", inspectionTime: "09:15", queenRight: true, eggs: false, larva: true, cappedBrood: true, broodPattern: "fair" as const, additionalNotes: null };
     hivesState.set([{ hiveId: "hive-1", name: "North Field", status: true, inspections: [inspection] }]);
     hasHivesState.set(true);
-    hivesStore.createInspection.mockRejectedValue(new Error("failed"));
     inspectionErrorState.set("Could not save inspection");
     fixture.detectChanges();
 
-    (fixture.nativeElement.querySelector("[aria-label='Add Inspection']") as HTMLButtonElement).click();
-    fixture.detectChanges();
-    const component = fixture.componentInstance as never as { saveInspection: (payload: any) => Promise<void> };
-    await component.saveInspection({});
-    inspectionErrorState.set("Could not save inspection");
-    fixture.detectChanges();
-    (fixture.nativeElement.querySelector("[aria-label='Close']") as HTMLButtonElement).click();
-    fixture.detectChanges();
+    // when the historical inspection is opened
     (fixture.nativeElement.querySelector("tbody button") as HTMLButtonElement).click();
     fixture.detectChanges();
 
+    // then the stale create error is cleared from the history modal
     expect(hivesStore.clearInspectionError).toHaveBeenLastCalledWith();
     expect(fixture.nativeElement.textContent).not.toContain("Could not save inspection");
   });

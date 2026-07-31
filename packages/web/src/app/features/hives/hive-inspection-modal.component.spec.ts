@@ -31,17 +31,43 @@ describe("HiveInspectionModalComponent", () => {
   });
 
   it("focuses the date field when creating an inspection", () => {
+    // given the create inspection modal has rendered
+
+    // when its initial focus is applied
+    fixture.detectChanges();
+
+    // then the date field receives focus
     expect(document.activeElement).toBe(fixture.nativeElement.querySelector("#inspection-date"));
   });
 
   it("focuses the enabled close button when viewing an inspection", () => {
+    // given an existing inspection is supplied to a new modal
     const readOnlyFixture = TestBed.createComponent(HiveInspectionModalComponent);
     readOnlyFixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections: [] });
     readOnlyFixture.componentRef.setInput("inspection", { inspectionId: "inspection-1", hiveId: "hive-1", inspectionDate: "2026-07-30", inspectionTime: "09:15", queenRight: true, eggs: false, larva: true, cappedBrood: true, broodPattern: "fair", additionalNotes: null });
 
+    // when the read-only modal is rendered
     readOnlyFixture.detectChanges();
 
+    // then the enabled close button receives focus
     expect(document.activeElement).toBe(readOnlyFixture.nativeElement.querySelector("[aria-label='Close']"));
+  });
+
+  it("shows required validation without emitting an invalid inspection", () => {
+    // given the required date and time are empty
+    const emitted: unknown[] = [];
+    fixture.componentInstance.save.subscribe((value) => emitted.push(value));
+    const form = (fixture.componentInstance as any).form;
+    form.patchValue({ inspectionDate: "", inspectionTime: "" });
+
+    // when the invalid inspection is submitted
+    (fixture.nativeElement.querySelector("form") as HTMLFormElement).dispatchEvent(new Event("submit"));
+    fixture.detectChanges();
+
+    // then both required errors render and no save is emitted
+    expect(fixture.nativeElement.textContent).toContain("Inspection date is required.");
+    expect(fixture.nativeElement.textContent).toContain("Inspection time is required.");
+    expect(emitted).toEqual([]);
   });
 
   it("disables read-only values and omits save and cancel", () => {

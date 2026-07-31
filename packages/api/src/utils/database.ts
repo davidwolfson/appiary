@@ -19,6 +19,10 @@ export class Database {
     return this.pool.query<TResult>(text, values);
   }
 
+  close(): Promise<void> {
+    return this.pool.end();
+  }
+
   async withTransaction<TResult>(callback: (client: PoolClient) => Promise<TResult>): Promise<TResult> {
     const client = await this.pool.connect();
 

@@ -46,7 +46,11 @@ export class HiveInspectionModalComponent implements AfterViewInit, OnChanges {
   close(): void { if (!this.isSaving) this.closed.emit(); }
 
   submit(): void {
-    if (this.isSaving || this.isReadOnly || this.form.invalid) return;
+    if (this.isSaving || this.isReadOnly) return;
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
     const value = this.form.getRawValue();
     this.save.emit({
       inspectionDate: value.inspectionDate!, inspectionTime: value.inspectionTime!,
