@@ -11,6 +11,10 @@ const requiredColumnsByTable = {
   users: ["id", "account_id", "email", "password_hash", "created_at", "updated_at"],
   revoked_tokens: ["jti", "expires_at", "created_at"],
   hives: ["hive_id", "account_id", "status", "name", "created_at", "updated_at"],
+  hive_inspections: [
+    "inspection_id", "hive_id", "inspection_date", "inspection_time", "queen_right", "eggs", "larva",
+    "capped_brood", "brood_pattern", "additional_notes", "created_at", "updated_at",
+  ],
 } satisfies Record<string, string[]>;
 
 export async function assertDatabaseSchema(): Promise<void> {

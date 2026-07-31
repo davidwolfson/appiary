@@ -12,6 +12,7 @@ export function createHive(overrides: Partial<HiveResponse> = {}): HiveResponse 
     hiveId: "hive-123",
     name: "North Field",
     status: true,
+    inspections: [],
     ...overrides,
   };
 }

@@ -10,6 +10,7 @@ describe("mapToHiveResponse", () => {
       name: "North Field",
       status: true,
       accountId: "account-1",
+      inspections: [],
     };
 
     // when the result is mapped for the API
@@ -20,6 +21,7 @@ describe("mapToHiveResponse", () => {
       hiveId: "hive-1",
       name: "North Field",
       status: true,
+      inspections: [],
     });
   });
 });

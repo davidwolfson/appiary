@@ -9,6 +9,7 @@ const getAuthenticatedUserMock = vi.hoisted(() => vi.fn());
 const listForAuthenticatedUserMock = vi.hoisted(() => vi.fn());
 const createForAuthenticatedUserMock = vi.hoisted(() => vi.fn());
 const updateForAuthenticatedUserMock = vi.hoisted(() => vi.fn());
+const createInspectionForAuthenticatedUserMock = vi.hoisted(() => vi.fn());
 const requireAuthMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../../src/services/auth.service.js", () => ({
@@ -25,6 +26,7 @@ vi.mock("../../src/services/hive.service.js", () => ({
     listForAuthenticatedUser = listForAuthenticatedUserMock;
     createForAuthenticatedUser = createForAuthenticatedUserMock;
     updateForAuthenticatedUser = updateForAuthenticatedUserMock;
+    createInspectionForAuthenticatedUser = createInspectionForAuthenticatedUserMock;
   },
 }));
 
@@ -38,6 +40,10 @@ vi.mock("../../src/repositories/user.repository.js", () => ({
 
 vi.mock("../../src/repositories/hive.repository.js", () => ({
   HiveRepository: class {},
+}));
+
+vi.mock("../../src/repositories/hive-inspection.repository.js", () => ({
+  HiveInspectionRepository: class {},
 }));
 
 vi.mock("../../src/repositories/revoked-token.repository.js", () => ({
@@ -59,6 +65,7 @@ describe("createApp", () => {
     listForAuthenticatedUserMock.mockReset();
     createForAuthenticatedUserMock.mockReset();
     updateForAuthenticatedUserMock.mockReset();
+    createInspectionForAuthenticatedUserMock.mockReset();
     requireAuthMock.mockReset();
     requireAuthMock.mockImplementation((req, _res, next) => {
       req.authenticatedUserId = "user-1";
@@ -291,6 +298,7 @@ describe("createApp", () => {
           name: "North Field",
           status: true,
           accountId: "account-1",
+          inspections: [],
         },
       ],
     });
@@ -307,6 +315,7 @@ describe("createApp", () => {
             hiveId: "hive-1",
             name: "North Field",
             status: true,
+            inspections: [],
           },
         ],
       });
@@ -323,6 +332,7 @@ describe("createApp", () => {
         name: "North Field",
         status: true,
         accountId: "account-1",
+        inspections: [],
       },
     });
 
@@ -336,6 +346,7 @@ describe("createApp", () => {
         body: JSON.stringify({
           name: "  North Field  ",
           status: true,
+          inspections: [],
         }),
       });
 
@@ -346,6 +357,7 @@ describe("createApp", () => {
           hiveId: "hive-1",
           name: "North Field",
           status: true,
+          inspections: [],
         },
       });
       expect(createForAuthenticatedUserMock).toHaveBeenCalledWith({
@@ -413,6 +425,18 @@ describe("createApp", () => {
         name: "South Field",
         status: false,
         accountId: "account-1",
+        inspections: [{
+          inspectionId: "b701e3d1-e8ed-47e8-9e31-ae8389487670",
+          hiveId: "37a9a6dc-3030-4be5-9694-f65c5c5f6d1e",
+          inspectionDate: "2026-07-31",
+          inspectionTime: "14:30",
+          queenRight: true,
+          eggs: true,
+          larva: true,
+          cappedBrood: false,
+          broodPattern: "good",
+          additionalNotes: "Healthy colony",
+        }],
       },
     });
 
@@ -426,6 +450,7 @@ describe("createApp", () => {
         body: JSON.stringify({
           name: "  South Field  ",
           status: false,
+          inspections: [],
         }),
       });
 
@@ -436,6 +461,18 @@ describe("createApp", () => {
           hiveId: "37a9a6dc-3030-4be5-9694-f65c5c5f6d1e",
           name: "South Field",
           status: false,
+          inspections: [{
+            inspectionId: "b701e3d1-e8ed-47e8-9e31-ae8389487670",
+            hiveId: "37a9a6dc-3030-4be5-9694-f65c5c5f6d1e",
+            inspectionDate: "2026-07-31",
+            inspectionTime: "14:30",
+            queenRight: true,
+            eggs: true,
+            larva: true,
+            cappedBrood: false,
+            broodPattern: "good",
+            additionalNotes: "Healthy colony",
+          }],
         },
       });
       expect(updateForAuthenticatedUserMock).toHaveBeenCalledWith({
@@ -570,6 +607,72 @@ describe("createApp", () => {
         message: "Unauthorized",
       });
       expect(updateForAuthenticatedUserMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("creates inspections through the protected nested hive route", async () => {
+    // given the hive service can create an inspection
+    createInspectionForAuthenticatedUserMock.mockResolvedValue({ inspection: {
+      inspectionId: "b701e3d1-e8ed-47e8-9e31-ae8389487670",
+      hiveId: "37a9a6dc-3030-4be5-9694-f65c5c5f6d1e",
+      inspectionDate: "2026-07-31", inspectionTime: "14:30", queenRight: true,
+      eggs: false, larva: true, cappedBrood: false, broodPattern: "good", additionalNotes: null,
+    } });
+
+    // when a valid inspection is posted
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/hives/37a9a6dc-3030-4be5-9694-f65c5c5f6d1e/inspections`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+          inspectionDate: "2026-07-31", inspectionTime: "14:30", queenRight: true,
+          eggs: false, larva: true, cappedBrood: false, broodPattern: "good",
+        }),
+      });
+
+      // then the route returns the created inspection and authenticated action
+      expect(response.status).toBe(201);
+      await expect(response.json()).resolves.toMatchObject({ inspection: {
+        inspectionId: "b701e3d1-e8ed-47e8-9e31-ae8389487670", additionalNotes: null,
+      } });
+      expect(createInspectionForAuthenticatedUserMock).toHaveBeenCalledWith({
+        authenticatedUserId: "user-1", hiveId: "37a9a6dc-3030-4be5-9694-f65c5c5f6d1e",
+        inspectionDate: "2026-07-31", inspectionTime: "14:30", queenRight: true,
+        eggs: false, larva: true, cappedBrood: false, broodPattern: "good", additionalNotes: null,
+      });
+    });
+  });
+
+  it("rejects invalid inspection payloads before calling the service", async () => {
+    // given an impossible date, invalid time, and missing observation booleans
+    // when the inspection is posted
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/hives/37a9a6dc-3030-4be5-9694-f65c5c5f6d1e/inspections`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+          inspectionDate: "2026-02-30", inspectionTime: "25:00", broodPattern: "excellent",
+        }),
+      });
+
+      // then request validation fails without service invocation
+      expect(response.status).toBe(400);
+      expect(createInspectionForAuthenticatedUserMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("maps non-disclosing missing-hive inspection errors", async () => {
+    // given inspection creation cannot see the target hive
+    createInspectionForAuthenticatedUserMock.mockRejectedValue(new AppError(404, "Hive not found"));
+
+    // when a valid inspection is posted
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/hives/00000000-0000-4000-8000-000000000000/inspections`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+          inspectionDate: "2026-07-31", inspectionTime: "14:30", queenRight: false,
+          eggs: false, larva: false, cappedBrood: false,
+        }),
+      });
+
+      // then the route returns the common hive-not-found response
+      expect(response.status).toBe(404);
+      await expect(response.json()).resolves.toEqual({ message: "Hive not found" });
     });
   });
 });

@@ -13,16 +13,23 @@ describe("HiveService", () => {
   const userRepository = {
     findById: vi.fn(),
   };
+  const hiveInspectionRepository = {
+    createForAccount: vi.fn(),
+    findLatestForHiveIds: vi.fn(),
+  };
 
   beforeEach(() => {
     hiveRepository.create.mockReset();
     hiveRepository.findByAccountId.mockReset();
     hiveRepository.update.mockReset();
     userRepository.findById.mockReset();
+    hiveInspectionRepository.createForAccount.mockReset();
+    hiveInspectionRepository.findLatestForHiveIds.mockReset();
+    hiveInspectionRepository.findLatestForHiveIds.mockResolvedValue(new Map());
   });
 
   function createService() {
-    return new HiveService(hiveRepository as never, userRepository as never);
+    return new HiveService(hiveRepository as never, userRepository as never, hiveInspectionRepository as never);
   }
 
   it("lists hives for the authenticated user's account", async () => {
@@ -40,6 +47,11 @@ describe("HiveService", () => {
         updatedAt: new Date(),
       },
     ]);
+    hiveInspectionRepository.findLatestForHiveIds.mockResolvedValue(new Map([["hive-1", [{
+      inspectionId: "inspection-1", hiveId: "hive-1", inspectionDate: "2026-07-31",
+      inspectionTime: "14:30", queenRight: true, eggs: false, larva: true, cappedBrood: false,
+      broodPattern: "good", additionalNotes: null, createdAt: new Date(), updatedAt: new Date(),
+    }]]]));
 
     // when the user's hives are requested
     const result = service.listForAuthenticatedUser("user-1");
@@ -51,10 +63,16 @@ describe("HiveService", () => {
           hiveId: "hive-1",
           name: "North Field",
           status: true,
+          inspections: [{
+            inspectionId: "inspection-1", hiveId: "hive-1", inspectionDate: "2026-07-31",
+            inspectionTime: "14:30", queenRight: true, eggs: false, larva: true, cappedBrood: false,
+            broodPattern: "good", additionalNotes: null,
+          }],
         },
       ],
     });
     expect(hiveRepository.findByAccountId).toHaveBeenCalledWith("account-1");
+    expect(hiveInspectionRepository.findLatestForHiveIds).toHaveBeenCalledWith(["hive-1"]);
   });
 
   it("creates a hive for the authenticated user's account", async () => {
@@ -84,6 +102,7 @@ describe("HiveService", () => {
         hiveId: "hive-1",
         name: "North Field",
         status: true,
+        inspections: [],
       },
     });
     expect(hiveRepository.create).toHaveBeenCalledWith({
@@ -124,6 +143,20 @@ describe("HiveService", () => {
       name: "South Field",
       status: false,
     };
+    const existingInspection = {
+      inspectionId: "inspection-1",
+      hiveId: existingHive.hiveId,
+      inspectionDate: "2026-07-31",
+      inspectionTime: "14:30",
+      queenRight: true,
+      eggs: true,
+      larva: true,
+      cappedBrood: false,
+      broodPattern: "good",
+      additionalNotes: "Healthy colony",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
     userRepository.findById.mockResolvedValue({ id: "user-1", accountId: existingHive.accountId });
     hiveRepository.update.mockResolvedValue({
@@ -134,6 +167,9 @@ describe("HiveService", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+    hiveInspectionRepository.findLatestForHiveIds.mockResolvedValue(new Map([
+      [existingHive.hiveId, [existingInspection]],
+    ]));
 
     // when the user updates the hive
     const result = service.updateForAuthenticatedUser({
@@ -149,6 +185,18 @@ describe("HiveService", () => {
         hiveId: existingHive.hiveId,
         name: updatePayload.name,
         status: updatePayload.status,
+        inspections: [{
+          inspectionId: existingInspection.inspectionId,
+          hiveId: existingInspection.hiveId,
+          inspectionDate: existingInspection.inspectionDate,
+          inspectionTime: existingInspection.inspectionTime,
+          queenRight: existingInspection.queenRight,
+          eggs: existingInspection.eggs,
+          larva: existingInspection.larva,
+          cappedBrood: existingInspection.cappedBrood,
+          broodPattern: existingInspection.broodPattern,
+          additionalNotes: existingInspection.additionalNotes,
+        }],
       },
     });
     expect(hiveRepository.update).toHaveBeenCalledWith({
@@ -157,6 +205,7 @@ describe("HiveService", () => {
       name: updatePayload.name,
       status: updatePayload.status,
     });
+    expect(hiveInspectionRepository.findLatestForHiveIds).toHaveBeenCalledWith([existingHive.hiveId]);
   });
 
   it("maps duplicate hive name update errors to conflict errors", async () => {
@@ -195,6 +244,7 @@ describe("HiveService", () => {
 
     // then the service returns not found
     await expect(result).rejects.toEqual(new AppError(404, "Hive not found"));
+    expect(hiveInspectionRepository.findLatestForHiveIds).not.toHaveBeenCalled();
   });
 
   it("rejects hive listing when the authenticated user cannot be resolved", async () => {
@@ -207,6 +257,47 @@ describe("HiveService", () => {
 
     // then the service rejects the request as unauthorized
     await expect(result).rejects.toEqual(new AppError(401, "Unauthorized"));
+  });
+
+  it("creates an inspection for an owned hive", async () => {
+    // given the authenticated user owns the target hive
+    const service = createService();
+    userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
+    hiveInspectionRepository.createForAccount.mockResolvedValue({
+      inspectionId: "inspection-1", hiveId: "hive-1", inspectionDate: "2026-07-31",
+      inspectionTime: "14:30", queenRight: true, eggs: true, larva: false, cappedBrood: true,
+      broodPattern: "good", additionalNotes: null, createdAt: new Date(), updatedAt: new Date(),
+    });
+
+    // when the user creates an inspection
+    const result = service.createInspectionForAuthenticatedUser({
+      authenticatedUserId: "user-1", hiveId: "hive-1", inspectionDate: "2026-07-31",
+      inspectionTime: "14:30", queenRight: true, eggs: true, larva: false, cappedBrood: true,
+      broodPattern: "good", additionalNotes: null,
+    });
+
+    // then the scoped inspection is returned
+    await expect(result).resolves.toMatchObject({ inspection: { inspectionId: "inspection-1", hiveId: "hive-1" } });
+    expect(hiveInspectionRepository.createForAccount).toHaveBeenCalledWith(expect.objectContaining({
+      accountId: "account-1", hiveId: "hive-1",
+    }));
+  });
+
+  it("does not disclose missing or foreign-owned hives during inspection creation", async () => {
+    // given no hive is visible in the authenticated account
+    const service = createService();
+    userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
+    hiveInspectionRepository.createForAccount.mockResolvedValue(null);
+
+    // when an inspection is created for that hive
+    const result = service.createInspectionForAuthenticatedUser({
+      authenticatedUserId: "user-1", hiveId: "foreign-hive", inspectionDate: "2026-07-31",
+      inspectionTime: "14:30", queenRight: false, eggs: false, larva: false, cappedBrood: false,
+      broodPattern: null, additionalNotes: null,
+    });
+
+    // then the same non-disclosing not-found error is returned
+    await expect(result).rejects.toEqual(new AppError(404, "Hive not found"));
   });
 
   it("rejects hive creation when the authenticated user cannot be resolved", async () => {

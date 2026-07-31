@@ -110,15 +110,28 @@ describe("HivesStore", () => {
   });
 
   it("replaces an updated hive without changing list order", async () => {
-    // given the store contains two hives and update returns one changed hive
+    // given the store contains two hives and update returns one changed hive with its inspections
+    const inspection = {
+      inspectionId: "inspection-1",
+      hiveId: "hive-1",
+      inspectionDate: "2026-07-31",
+      inspectionTime: "14:30",
+      queenRight: true,
+      eggs: true,
+      larva: true,
+      cappedBrood: false,
+      broodPattern: "good" as const,
+      additionalNotes: "Healthy colony",
+    };
     hivesService.listHives.mockResolvedValue([
-      { hiveId: "hive-1", name: "North Field", status: true },
-      { hiveId: "hive-2", name: "South Field", status: false },
+      { hiveId: "hive-1", name: "North Field", status: true, inspections: [inspection] },
+      { hiveId: "hive-2", name: "South Field", status: false, inspections: [] },
     ]);
     hivesService.updateHive.mockResolvedValue({
       hiveId: "hive-1",
       name: "North Field Updated",
       status: false,
+      inspections: [inspection],
     });
 
     // when the store updates the first hive
@@ -127,8 +140,8 @@ describe("HivesStore", () => {
 
     // then the matching hive is replaced in its original position
     expect(store.hives()).toEqual([
-      { hiveId: "hive-1", name: "North Field Updated", status: false },
-      { hiveId: "hive-2", name: "South Field", status: false },
+      { hiveId: "hive-1", name: "North Field Updated", status: false, inspections: [inspection] },
+      { hiveId: "hive-2", name: "South Field", status: false, inspections: [] },
     ]);
     expect(hivesService.updateHive).toHaveBeenCalledWith("hive-1", {
       name: "North Field Updated",

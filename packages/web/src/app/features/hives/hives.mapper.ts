@@ -7,5 +7,6 @@ export function mapToHiveViewModel(hive: HiveResponse): HiveViewModel {
     hiveId: hive.hiveId,
     name: hive.name,
     status: hive.status,
+    inspections: hive.inspections,
   };
 }
