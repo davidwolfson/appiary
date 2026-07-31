@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-import type { AuthenticatedUser, CreateHiveRequest, UpdateHiveRequest } from "@appiary/types";
+import type { AuthenticatedUser, CreateHiveInspectionRequest, CreateHiveRequest, UpdateHiveRequest } from "@appiary/types";
 
 import { routes } from "../helpers/routes";
 
@@ -19,6 +19,11 @@ export function createHivesDashboardPage(page: Page) {
   const loadingStatus = page.getByRole("status");
   const hiveCard = (hiveId: string) => page.getByTestId(`hive-card-${hiveId}`);
   const editHiveButton = (hiveId: string) => hiveCard(hiveId).getByRole("button", { name: "Edit Hive" });
+  const addInspectionButton = (hiveId: string) => hiveCard(hiveId).getByRole("button", { name: "Add Inspection" });
+  const inspectionModal = page.getByRole("dialog", { name: "Hive Inspection" });
+  const inspectionDateInput = page.getByLabel("Date");
+  const inspectionTimeInput = page.getByLabel("Time");
+  const saveInspectionButton = page.getByRole("button", { name: "Save" });
 
   return {
     addHiveButton,
@@ -29,6 +34,10 @@ export function createHivesDashboardPage(page: Page) {
     editHiveModal,
     hiveCard,
     editHiveButton,
+    addInspectionButton,
+    inspectionModal,
+    inspectionDateInput,
+    saveInspectionButton,
     hiveNameInput,
     statusSelect,
     saveButton,
@@ -57,6 +66,27 @@ export function createHivesDashboardPage(page: Page) {
     async openEditHiveModal(hiveId: string): Promise<void> {
       await editHiveButton(hiveId).click();
       await expect(editHiveModal).toBeVisible();
+    },
+    async openAddInspectionModal(hiveId: string): Promise<void> {
+      await addInspectionButton(hiveId).click();
+      await expect(inspectionModal).toBeVisible();
+    },
+    async openInspection(hiveId: string, date: string): Promise<void> {
+      await hiveCard(hiveId).getByRole("button", { name: date }).click();
+      await expect(inspectionModal).toBeVisible();
+    },
+    async fillInspectionForm(payload: CreateHiveInspectionRequest): Promise<void> {
+      await inspectionDateInput.fill(payload.inspectionDate);
+      await inspectionTimeInput.fill(payload.inspectionTime);
+      for (const [label, checked] of [["Queen Right", payload.queenRight], ["Eggs", payload.eggs], ["Larva", payload.larva], ["Capped Brood", payload.cappedBrood]] as const) {
+        if (checked) await page.getByLabel(label, { exact: true }).check();
+        else await page.getByLabel(label, { exact: true }).uncheck();
+      }
+      if (payload.broodPattern) {
+        const label = payload.broodPattern === "na" ? "NA" : payload.broodPattern[0].toUpperCase() + payload.broodPattern.slice(1);
+        await page.getByLabel(label, { exact: true }).check();
+      }
+      await page.getByLabel("Additional Notes").fill(payload.additionalNotes ?? "");
     },
     async fillForm(payload: CreateHiveRequest | UpdateHiveRequest): Promise<void> {
       await hiveNameInput.fill(payload.name);

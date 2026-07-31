@@ -43,4 +43,18 @@ describe("HivesApi", () => {
       hive: { hiveId: "hive-1", name: "North Field", status: false },
     });
   });
+
+  it("creates an inspection at the nested endpoint", () => {
+    // given valid inspection details are available
+    const payload = { inspectionDate: "2026-07-31", inspectionTime: "15:30", queenRight: true, eggs: true, larva: false, cappedBrood: false, broodPattern: null, additionalNotes: null };
+
+    // when the API creates the inspection
+    api.createInspection("hive-1", payload).subscribe();
+
+    // then the request uses the hive-scoped endpoint and unchanged payload
+    const request = http.expectOne("/api/hives/hive-1/inspections");
+    expect(request.request.method).toBe("POST");
+    expect(request.request.body).toEqual(payload);
+    request.flush({ inspection: { inspectionId: "inspection-1", hiveId: "hive-1", ...payload } });
+  });
 });

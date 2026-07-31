@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from "@angular/core";
 
-import type { CreateHiveRequest, UpdateHiveRequest } from "@appiary/types";
+import type { CreateHiveInspectionRequest, UpdateHiveRequest, CreateHiveRequest } from "@appiary/types";
 
 import { HivesService } from "./hives.service";
 import type { HiveViewModel } from "./hives.mapper";
@@ -27,6 +27,8 @@ export class HivesStore {
   private readonly errorState = signal<string | null>(null);
   private readonly createErrorState = signal<string | null>(null);
   private readonly updateErrorState = signal<string | null>(null);
+  private readonly savingInspectionState = signal(false);
+  private readonly inspectionErrorState = signal<string | null>(null);
 
   readonly hives = this.hivesState.asReadonly();
   readonly isLoading = this.loadingState.asReadonly();
@@ -35,6 +37,8 @@ export class HivesStore {
   readonly error = this.errorState.asReadonly();
   readonly createError = this.createErrorState.asReadonly();
   readonly updateError = this.updateErrorState.asReadonly();
+  readonly isSavingInspection = this.savingInspectionState.asReadonly();
+  readonly inspectionError = this.inspectionErrorState.asReadonly();
   readonly hasHives = computed(() => this.hivesState().length > 0);
 
   async loadHives(): Promise<void> {
@@ -85,6 +89,28 @@ export class HivesStore {
     }
   }
 
+  async createInspection(hiveId: string, payload: CreateHiveInspectionRequest): Promise<void> {
+    this.savingInspectionState.set(true);
+    this.inspectionErrorState.set(null);
+
+    try {
+      const inspection = await this.hivesService.createInspection(hiveId, payload);
+      this.hivesState.update((hives) => hives.map((hive) => hive.hiveId === hiveId
+        ? {
+          ...hive,
+          inspections: [inspection, ...(hive.inspections ?? [])]
+            .sort((left, right) => `${right.inspectionDate}T${right.inspectionTime}`.localeCompare(`${left.inspectionDate}T${left.inspectionTime}`))
+            .slice(0, 5),
+        }
+        : hive));
+    } catch (error) {
+      this.inspectionErrorState.set(extractErrorMessage(error));
+      throw error;
+    } finally {
+      this.savingInspectionState.set(false);
+    }
+  }
+
   clearError(): void {
     this.errorState.set(null);
   }
@@ -95,5 +121,9 @@ export class HivesStore {
 
   clearUpdateError(): void {
     this.updateErrorState.set(null);
+  }
+
+  clearInspectionError(): void {
+    this.inspectionErrorState.set(null);
   }
 }

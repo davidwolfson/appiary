@@ -1,17 +1,18 @@
 import { DOCUMENT } from "@angular/common";
-import { Component, OnInit, inject, signal } from "@angular/core";
+import { Component, OnInit, computed, inject, signal } from "@angular/core";
 
 import { AuthStore } from "../auth/auth.store";
 import { EditHiveModalComponent } from "./edit-hive-modal.component";
 import { HiveCardComponent } from "./hive-card.component";
+import { HiveInspectionModalComponent } from "./hive-inspection-modal.component";
 import { HivesStore } from "./hives.store";
-import type { CreateHiveRequest } from "@appiary/types";
-import type { HiveViewModel } from "./hives.mapper";
+import type { CreateHiveInspectionRequest, CreateHiveRequest } from "@appiary/types";
+import type { HiveInspectionViewModel, HiveViewModel } from "./hives.mapper";
 
 @Component({
   selector: "app-hives-dashboard",
   standalone: true,
-  imports: [EditHiveModalComponent, HiveCardComponent],
+  imports: [EditHiveModalComponent, HiveCardComponent, HiveInspectionModalComponent],
   templateUrl: "./hives-dashboard.component.html",
 })
 export class HivesDashboardComponent implements OnInit {
@@ -22,6 +23,9 @@ export class HivesDashboardComponent implements OnInit {
   protected readonly hivesStore = inject(HivesStore);
   protected readonly isModalOpen = signal(false);
   protected readonly selectedHive = signal<HiveViewModel | null>(null);
+  protected readonly inspectionHive = signal<HiveViewModel | null>(null);
+  protected readonly selectedInspection = signal<HiveInspectionViewModel | null>(null);
+  protected readonly hasOpenModal = computed(() => this.isModalOpen() || this.inspectionHive() !== null);
 
   ngOnInit(): void {
     void this.hivesStore.loadHives();
@@ -32,6 +36,7 @@ export class HivesDashboardComponent implements OnInit {
     this.hivesStore.clearCreateError();
     this.hivesStore.clearUpdateError();
     this.selectedHive.set(null);
+    this.inspectionHive.set(null);
     this.isModalOpen.set(true);
   }
 
@@ -40,7 +45,26 @@ export class HivesDashboardComponent implements OnInit {
     this.hivesStore.clearCreateError();
     this.hivesStore.clearUpdateError();
     this.selectedHive.set(hive);
+    this.inspectionHive.set(null);
     this.isModalOpen.set(true);
+  }
+
+  protected openAddInspectionModal(hive: HiveViewModel): void {
+    this.captureModalTrigger();
+    this.isModalOpen.set(false);
+    this.selectedHive.set(null);
+    this.selectedInspection.set(null);
+    this.hivesStore.clearInspectionError();
+    this.inspectionHive.set(hive);
+  }
+
+  protected openInspectionModal(hive: HiveViewModel, inspection: HiveInspectionViewModel): void {
+    this.captureModalTrigger();
+    this.hivesStore.clearInspectionError();
+    this.isModalOpen.set(false);
+    this.selectedHive.set(null);
+    this.selectedInspection.set(inspection);
+    this.inspectionHive.set(hive);
   }
 
   protected closeAddHiveModal(): void {
@@ -61,6 +85,17 @@ export class HivesDashboardComponent implements OnInit {
     }
   }
 
+  protected async saveInspection(payload: CreateHiveInspectionRequest): Promise<void> {
+    const hive = this.inspectionHive();
+    if (!hive) return;
+    try {
+      await this.hivesStore.createInspection(hive.hiveId, payload);
+      this.closeModal();
+    } catch {
+      // Store state carries the inspection error for the modal.
+    }
+  }
+
   protected async logout(): Promise<void> {
     await this.authStore.logout();
   }
@@ -74,9 +109,11 @@ export class HivesDashboardComponent implements OnInit {
     const trigger = this.modalTrigger;
     this.isModalOpen.set(false);
     this.selectedHive.set(null);
+    this.inspectionHive.set(null);
+    this.selectedInspection.set(null);
     this.modalTrigger = null;
 
-    queueMicrotask(() => {
+    setTimeout(() => {
       if (trigger?.isConnected) {
         trigger.focus();
         return;

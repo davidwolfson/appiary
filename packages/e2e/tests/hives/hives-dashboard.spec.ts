@@ -4,7 +4,10 @@ import { createAuthenticatedUser, visitAsAuthenticatedUser } from "../../helpers
 import {
   createHive,
   createHiveInput,
+  createInspection,
+  createInspectionInput,
   mockCreateHiveRequest,
+  mockCreateInspectionRequest,
   mockListHivesRequest,
   mockUpdateHiveRequest,
 } from "../../helpers/hives";
@@ -357,5 +360,115 @@ test.describe("hives dashboard", () => {
     await expect(dashboardPage.editHiveModal).toBeVisible();
     await expect(page).toHaveURL(/\/$/);
     await expectNoRequests(requests);
+  });
+
+  test("creates an inspection with the nested API payload and adds it to history", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const input = createInspectionInput();
+    const { requests } = await mockCreateInspectionRequest(page, async (route, hiveId, payload) => {
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ inspection: createInspection({ hiveId, ...payload }) }) });
+    });
+
+    // given I am authenticated with a hive and have opened Add Inspection
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [createHive()]);
+    await dashboardPage.goto();
+    await dashboardPage.openAddInspectionModal("hive-123");
+
+    // when I enter inspection details and save
+    await dashboardPage.fillInspectionForm(input);
+    await dashboardPage.saveInspectionButton.click();
+
+    // then the nested request should be exact and the new date should appear in history
+    await expect.poll(() => requests.length).toBe(1);
+    expect(requests[0]).toEqual({ hiveId: "hive-123", payload: input });
+    await expect(dashboardPage.inspectionModal).toBeHidden();
+    await expect(dashboardPage.hiveCard("hive-123").getByRole("button", { name: input.inspectionDate })).toBeVisible();
+  });
+
+  test("prevents duplicate inspection submission while saving", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    const { requests } = await mockCreateInspectionRequest(page, async (route) => {
+      await pending;
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ inspection: createInspection() }) });
+    });
+
+    // given a valid inspection is ready to save
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [createHive()]);
+    await dashboardPage.goto();
+    await dashboardPage.openAddInspectionModal("hive-123");
+    await dashboardPage.fillInspectionForm(createInspectionInput());
+
+    try {
+      // when I save while the API request remains pending
+      await dashboardPage.saveInspectionButton.click();
+
+      // then saving is disabled and only one request is sent
+      await expect(page.getByRole("button", { name: "Saving..." })).toBeDisabled();
+      await page.getByRole("button", { name: "Saving..." }).click({ force: true });
+      await expect.poll(() => requests.length).toBe(1);
+    } finally { release(); }
+  });
+
+  test("keeps Add Inspection open and displays API failures", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    await mockCreateInspectionRequest(page, async (route) => {
+      await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Could not save inspection" }) });
+    });
+
+    // given I have opened Add Inspection for a hive
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [createHive()]);
+    await dashboardPage.goto();
+    await dashboardPage.openAddInspectionModal("hive-123");
+
+    // when the inspection request fails
+    await dashboardPage.fillInspectionForm(createInspectionInput());
+    await dashboardPage.saveInspectionButton.click();
+
+    // then the modal remains open with the API message
+    await expect(dashboardPage.inspectionModal).toBeVisible();
+    await expect(dashboardPage.alert).toHaveText("Could not save inspection");
+  });
+
+  test("shows only the latest five inspection history entries", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const inspections = Array.from({ length: 6 }, (_, index) => createInspection({ inspectionId: `inspection-${index}`, inspectionDate: `2026-07-${String(30 - index).padStart(2, "0")}` }));
+
+    // given a hive has six inspections and another has none
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [createHive({ inspections }), createHive({ hiveId: "hive-empty", name: "Empty", inspections: [] })]);
+
+    // when I open the dashboard
+    await dashboardPage.goto();
+
+    // then only five dates render and the empty hive has no history table
+    await expect(dashboardPage.hiveCard("hive-123").getByRole("button", { name: /^2026-07-/ })).toHaveCount(5);
+    await expect(dashboardPage.hiveCard("hive-123").getByRole("button", { name: "2026-07-25" })).toHaveCount(0);
+    await expect(dashboardPage.hiveCard("hive-empty").getByRole("table")).toHaveCount(0);
+  });
+
+  test("opens history read-only and restores focus to its date trigger", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const inspection = createInspection();
+
+    // given an inspection date is visible in hive history
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [createHive({ inspections: [inspection] })]);
+    await dashboardPage.goto();
+    const dateTrigger = dashboardPage.hiveCard("hive-123").getByRole("button", { name: inspection.inspectionDate });
+
+    // when I open and close the historical inspection
+    await dashboardPage.openInspection("hive-123", inspection.inspectionDate);
+    await expect(dashboardPage.inspectionDateInput).toBeDisabled();
+    await expect(dashboardPage.inspectionModal.getByRole("button", { name: "Close" })).toBeFocused();
+    await dashboardPage.inspectionModal.getByRole("button", { name: "Close" }).click();
+
+    // then focus returns to the history date that opened it
+    await expect(dashboardPage.inspectionModal).toBeHidden();
+    await expect(dateTrigger).toBeFocused();
   });
 });

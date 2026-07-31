@@ -8,6 +8,7 @@ import { HivesStore } from "./hives.store";
 describe("HivesStore", () => {
   let store: HivesStore;
   let hivesService: {
+    createInspection: ReturnType<typeof vi.fn>;
     createHive: ReturnType<typeof vi.fn>;
     listHives: ReturnType<typeof vi.fn>;
     updateHive: ReturnType<typeof vi.fn>;
@@ -15,6 +16,7 @@ describe("HivesStore", () => {
 
   beforeEach(() => {
     hivesService = {
+      createInspection: vi.fn(),
       createHive: vi.fn(),
       listHives: vi.fn(),
       updateHive: vi.fn(),
@@ -178,5 +180,40 @@ describe("HivesStore", () => {
 
     // then the update error is no longer exposed
     expect(store.updateError()).toBeNull();
+  });
+
+  it("adds an inspection only to its hive and caps history at five", async () => {
+    // given two hives exist and one already has five inspections
+    const inspection = (id: string) => ({ inspectionId: id, hiveId: "hive-1", inspectionDate: "2026-07-31", inspectionTime: "12:00", queenRight: false, eggs: false, larva: false, cappedBrood: false, broodPattern: null, additionalNotes: null });
+    hivesService.listHives.mockResolvedValue([{ hiveId: "hive-1", name: "North", status: true, inspections: [1, 2, 3, 4, 5].map((id) => inspection(String(id))) }, { hiveId: "hive-2", name: "South", status: true, inspections: [] }]);
+    hivesService.createInspection.mockResolvedValue(inspection("new"));
+    await store.loadHives();
+    const untouchedHive = store.hives()[1];
+
+    // when a new inspection is saved
+    await store.createInspection("hive-1", { inspectionDate: "2026-07-31", inspectionTime: "12:00", queenRight: false, eggs: false, larva: false, cappedBrood: false });
+
+    // then only the target hive changes and its newest five are retained
+    expect(store.hives()[0].inspections.map(({ inspectionId }) => inspectionId)).toEqual(["new", "1", "2", "3", "4"]);
+    expect(store.hives()[1]).toBe(untouchedHive);
+    expect(store.isSavingInspection()).toBe(false);
+    expect(store.inspectionError()).toBeNull();
+  });
+
+  it("preserves hive state and exposes inspection save failures", async () => {
+    // given loaded state and a rejected inspection request
+    const hives = [{ hiveId: "hive-1", name: "North", status: true, inspections: [] }];
+    const error = { error: { message: "Could not save inspection" } };
+    hivesService.listHives.mockResolvedValue(hives);
+    hivesService.createInspection.mockRejectedValue(error);
+    await store.loadHives();
+
+    // when an inspection save fails
+    const result = store.createInspection("hive-1", { inspectionDate: "2026-07-31", inspectionTime: "12:00", queenRight: false, eggs: false, larva: false, cappedBrood: false });
+
+    // then the failure propagates without mutating hives
+    await expect(result).rejects.toBe(error);
+    expect(store.hives()).toEqual(hives);
+    expect(store.inspectionError()).toBe("Could not save inspection");
   });
 });

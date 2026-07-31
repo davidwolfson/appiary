@@ -5,49 +5,61 @@ import { vi } from "vitest";
 import { AuthStore } from "../auth/auth.store";
 import { HivesDashboardComponent } from "./hives-dashboard.component";
 import { HivesStore } from "./hives.store";
+import type { HiveViewModel } from "./hives.mapper";
 
 describe("HivesDashboardComponent", () => {
+  type TestHive = Omit<HiveViewModel, "inspections"> & Partial<Pick<HiveViewModel, "inspections">>;
   let fixture: ComponentFixture<HivesDashboardComponent>;
-  let hivesState: WritableSignal<{ hiveId: string; name: string; status: boolean }[]>;
+  let hivesState: WritableSignal<TestHive[]>;
   let loadingState: WritableSignal<boolean>;
   let errorState: WritableSignal<string | null>;
+  let inspectionErrorState: WritableSignal<string | null>;
   let hasHivesState: WritableSignal<boolean>;
   let modalOpen: () => HTMLElement | null;
   let hivesStore: {
     clearCreateError: ReturnType<typeof vi.fn>;
     clearUpdateError: ReturnType<typeof vi.fn>;
+    clearInspectionError: ReturnType<typeof vi.fn>;
     createError: ReturnType<typeof vi.fn>;
     createHive: ReturnType<typeof vi.fn>;
     error: () => string | null;
     hasHives: () => boolean;
-    hives: () => { hiveId: string; name: string; status: boolean }[];
+    hives: () => HiveViewModel[];
     isCreating: ReturnType<typeof vi.fn>;
     isLoading: () => boolean;
     isUpdating: ReturnType<typeof vi.fn>;
+    isSavingInspection: ReturnType<typeof vi.fn>;
+    inspectionError: ReturnType<typeof vi.fn>;
     loadHives: ReturnType<typeof vi.fn>;
     updateError: ReturnType<typeof vi.fn>;
     updateHive: ReturnType<typeof vi.fn>;
+    createInspection: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
-    hivesState = signal<{ hiveId: string; name: string; status: boolean }[]>([]);
+    hivesState = signal<TestHive[]>([]);
     loadingState = signal(false);
     errorState = signal<string | null>(null);
+    inspectionErrorState = signal<string | null>(null);
     hasHivesState = signal(false);
     hivesStore = {
       clearCreateError: vi.fn(),
       clearUpdateError: vi.fn(),
+      clearInspectionError: vi.fn(() => inspectionErrorState.set(null)),
       createError: vi.fn(() => null),
       createHive: vi.fn().mockResolvedValue(undefined),
       error: () => errorState(),
       hasHives: () => hasHivesState(),
-      hives: () => hivesState(),
+      hives: () => hivesState() as HiveViewModel[],
       isCreating: vi.fn(() => false),
       isLoading: () => loadingState(),
       isUpdating: vi.fn(() => false),
+      isSavingInspection: vi.fn(() => false),
+      inspectionError: vi.fn(() => inspectionErrorState()),
       loadHives: vi.fn().mockResolvedValue(undefined),
       updateError: vi.fn(() => null),
       updateHive: vi.fn().mockResolvedValue(undefined),
+      createInspection: vi.fn().mockResolvedValue(undefined),
     };
     modalOpen = () => fixture.nativeElement.querySelector("[role='dialog']");
 
@@ -153,6 +165,7 @@ describe("HivesDashboardComponent", () => {
     (fixture.nativeElement.querySelector("[aria-label='Close']") as HTMLButtonElement).click();
     fixture.detectChanges();
     await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     // then the dashboard is interactive and focus returns to the trigger
     expect((fixture.nativeElement.querySelector(".dashboard-shell") as HTMLElement).hasAttribute("inert")).toBe(false);
@@ -178,6 +191,7 @@ describe("HivesDashboardComponent", () => {
     await component.saveHive({ name: "North Field Updated", status: false });
     fixture.detectChanges();
     await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     // then focus returns to the Edit Hive trigger
     expect(document.activeElement).toBe(editButton);
@@ -372,5 +386,105 @@ describe("HivesDashboardComponent", () => {
     // then the error is shown without stale hive cards
     expect(fixture.nativeElement.textContent).toContain("Could not load hives");
     expect(fixture.nativeElement.textContent).not.toContain("North Field");
+  });
+
+  it("clears a failed create error before opening a historical inspection", async () => {
+    const inspection = { inspectionId: "inspection-1", hiveId: "hive-1", inspectionDate: "2026-07-30", inspectionTime: "09:15", queenRight: true, eggs: false, larva: true, cappedBrood: true, broodPattern: "fair" as const, additionalNotes: null };
+    hivesState.set([{ hiveId: "hive-1", name: "North Field", status: true, inspections: [inspection] }]);
+    hasHivesState.set(true);
+    hivesStore.createInspection.mockRejectedValue(new Error("failed"));
+    inspectionErrorState.set("Could not save inspection");
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector("[aria-label='Add Inspection']") as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const component = fixture.componentInstance as never as { saveInspection: (payload: any) => Promise<void> };
+    await component.saveInspection({});
+    inspectionErrorState.set("Could not save inspection");
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector("[aria-label='Close']") as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector("tbody button") as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(hivesStore.clearInspectionError).toHaveBeenLastCalledWith();
+    expect(fixture.nativeElement.textContent).not.toContain("Could not save inspection");
+  });
+
+  it("opens Add Inspection for the selected hive and closes other modal state", () => {
+    // given a hive card is rendered after Add Hive has been opened
+    const hive = { hiveId: "hive-1", name: "North Field", status: true, inspections: [] };
+    hivesState.set([hive]);
+    hasHivesState.set(true);
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector("[aria-label='Add Hive']").click();
+    fixture.detectChanges();
+
+    // when inspection creation is opened for that hive
+    const component = fixture.componentInstance as never as { openAddInspectionModal: (value: typeof hive) => void };
+    component.openAddInspectionModal(hive);
+    fixture.detectChanges();
+
+    // then exactly one create-inspection dialog is shown
+    expect(fixture.nativeElement.querySelectorAll("[role='dialog']")).toHaveLength(1);
+    expect(fixture.nativeElement.textContent).toContain("Hive Inspection");
+    expect(fixture.nativeElement.querySelector("button[type='submit']")).not.toBeNull();
+    expect(hivesStore.clearInspectionError).toHaveBeenCalled();
+  });
+
+  it("opens historical inspections in read-only mode", () => {
+    // given a hive contains an inspection
+    const inspection = { inspectionId: "inspection-1", hiveId: "hive-1", inspectionDate: "2026-07-30", inspectionTime: "09:15", queenRight: true, eggs: false, larva: true, cappedBrood: true, broodPattern: "fair" as const, additionalNotes: null };
+    hivesState.set([{ hiveId: "hive-1", name: "North Field", status: true, inspections: [inspection] }]);
+    hasHivesState.set(true);
+    fixture.detectChanges();
+
+    // when its history date is clicked
+    fixture.nativeElement.querySelector("tbody button").click();
+    fixture.detectChanges();
+
+    // then values are disabled and no save action is present
+    expect((fixture.nativeElement.querySelector("#inspection-date") as HTMLInputElement).disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector("button[type='submit']")).toBeNull();
+  });
+
+  it("saves an inspection through the store and closes the modal", async () => {
+    // given Add Inspection is open for a hive
+    hivesState.set([{ hiveId: "hive-1", name: "North Field", status: true, inspections: [] }]);
+    hasHivesState.set(true);
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector("[aria-label='Add Inspection']").click();
+    fixture.detectChanges();
+    const payload = { inspectionDate: "2026-07-31", inspectionTime: "10:30", queenRight: true, eggs: true, larva: false, cappedBrood: true };
+
+    // when valid inspection details are saved
+    const component = fixture.componentInstance as never as { saveInspection: (value: typeof payload) => Promise<void> };
+    await component.saveInspection(payload);
+    fixture.detectChanges();
+
+    // then the selected hive is targeted and the modal closes
+    expect(hivesStore.createInspection).toHaveBeenCalledWith("hive-1", payload);
+    expect(modalOpen()).toBeNull();
+  });
+
+  it("keeps Add Inspection open when saving fails", async () => {
+    // given Add Inspection is open and the store will reject the save
+    hivesStore.createInspection.mockRejectedValue(new Error("failed"));
+    inspectionErrorState.set("Could not save inspection");
+    hivesState.set([{ hiveId: "hive-1", name: "North Field", status: true, inspections: [] }]);
+    hasHivesState.set(true);
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector("[aria-label='Add Inspection']").click();
+    fixture.detectChanges();
+
+    // when inspection saving fails
+    const component = fixture.componentInstance as never as { saveInspection: (value: any) => Promise<void> };
+    await component.saveInspection({});
+    inspectionErrorState.set("Could not save inspection");
+    fixture.detectChanges();
+
+    // then the inspection modal remains open with its error
+    expect(modalOpen()).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain("Could not save inspection");
   });
 });
