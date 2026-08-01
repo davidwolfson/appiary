@@ -4,6 +4,8 @@ import { Injectable, inject } from "@angular/core";
 import type {
   CreateHiveRequest,
   CreateHiveResponse,
+  CreateHiveInspectionRequest,
+  CreateHiveInspectionResponse,
   ListHivesResponse,
   UpdateHiveRequest,
   UpdateHiveResponse,
@@ -26,5 +28,9 @@ export class HivesApi {
 
   updateHive(hiveId: string, payload: UpdateHiveRequest) {
     return this.http.put<UpdateHiveResponse>(`${this.hivesUrl}/${hiveId}`, payload);
+  }
+
+  createInspection(hiveId: string, payload: CreateHiveInspectionRequest) {
+    return this.http.post<CreateHiveInspectionResponse>(`${this.hivesUrl}/${hiveId}/inspections`, payload);
   }
 }

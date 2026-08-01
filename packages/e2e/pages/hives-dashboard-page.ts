@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-import type { AuthenticatedUser, CreateHiveRequest, UpdateHiveRequest } from "@appiary/types";
+import type { AuthenticatedUser, CreateHiveInspectionRequest, CreateHiveRequest, UpdateHiveRequest } from "@appiary/types";
 
 import { routes } from "../helpers/routes";
 
@@ -19,6 +19,22 @@ export function createHivesDashboardPage(page: Page) {
   const loadingStatus = page.getByRole("status");
   const hiveCard = (hiveId: string) => page.getByTestId(`hive-card-${hiveId}`);
   const editHiveButton = (hiveId: string) => hiveCard(hiveId).getByRole("button", { name: "Edit Hive" });
+  const addInspectionButton = (hiveId: string) => hiveCard(hiveId).getByRole("button", { name: "Add Inspection" });
+  const inspectionModal = page.getByRole("dialog", { name: "Hive Inspection" });
+  const inspectionDateInput = inspectionModal.getByLabel("Date");
+  const inspectionTimeInput = inspectionModal.getByLabel("Time");
+  const queenRightCheckbox = inspectionModal.getByLabel("Queen Right", { exact: true });
+  const eggsCheckbox = inspectionModal.getByLabel("Eggs", { exact: true });
+  const larvaCheckbox = inspectionModal.getByLabel("Larva", { exact: true });
+  const cappedBroodCheckbox = inspectionModal.getByLabel("Capped Brood", { exact: true });
+  const broodPatternRadio = (label: "Good" | "Fair" | "Poor" | "NA") =>
+    inspectionModal.getByLabel(label, { exact: true });
+  const additionalNotesInput = inspectionModal.getByLabel("Additional Notes");
+  const saveInspectionButton = inspectionModal.getByRole("button", { name: "Save", exact: true });
+  const cancelInspectionButton = inspectionModal.getByRole("button", { name: "Cancel" });
+  const closeInspectionButton = inspectionModal.getByRole("button", { name: "Close" });
+  const inspectionDateButton = (hiveId: string, date: string) =>
+    hiveCard(hiveId).getByRole("button", { name: date, exact: true });
 
   return {
     addHiveButton,
@@ -29,6 +45,20 @@ export function createHivesDashboardPage(page: Page) {
     editHiveModal,
     hiveCard,
     editHiveButton,
+    addInspectionButton,
+    inspectionModal,
+    inspectionDateInput,
+    inspectionTimeInput,
+    queenRightCheckbox,
+    eggsCheckbox,
+    larvaCheckbox,
+    cappedBroodCheckbox,
+    broodPatternRadio,
+    additionalNotesInput,
+    saveInspectionButton,
+    cancelInspectionButton,
+    closeInspectionButton,
+    inspectionDateButton,
     hiveNameInput,
     statusSelect,
     saveButton,
@@ -57,6 +87,27 @@ export function createHivesDashboardPage(page: Page) {
     async openEditHiveModal(hiveId: string): Promise<void> {
       await editHiveButton(hiveId).click();
       await expect(editHiveModal).toBeVisible();
+    },
+    async openAddInspectionModal(hiveId: string): Promise<void> {
+      await addInspectionButton(hiveId).click();
+      await expect(inspectionModal).toBeVisible();
+    },
+    async openInspection(hiveId: string, date: string): Promise<void> {
+      await inspectionDateButton(hiveId, date).click();
+      await expect(inspectionModal).toBeVisible();
+    },
+    async fillInspectionForm(payload: CreateHiveInspectionRequest): Promise<void> {
+      await inspectionDateInput.fill(payload.inspectionDate);
+      await inspectionTimeInput.fill(payload.inspectionTime);
+      for (const [control, checked] of [[queenRightCheckbox, payload.queenRight], [eggsCheckbox, payload.eggs], [larvaCheckbox, payload.larva], [cappedBroodCheckbox, payload.cappedBrood]] as const) {
+        if (checked) await control.check();
+        else await control.uncheck();
+      }
+      if (payload.broodPattern) {
+        const label = payload.broodPattern === "na" ? "NA" : payload.broodPattern[0].toUpperCase() + payload.broodPattern.slice(1);
+        await broodPatternRadio(label as "Good" | "Fair" | "Poor" | "NA").check();
+      }
+      await additionalNotesInput.fill(payload.additionalNotes ?? "");
     },
     async fillForm(payload: CreateHiveRequest | UpdateHiveRequest): Promise<void> {
       await hiveNameInput.fill(payload.name);

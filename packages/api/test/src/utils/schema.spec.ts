@@ -38,6 +38,18 @@ describe("assertDatabaseSchema", () => {
         { table_name: "hives", column_name: "name" },
         { table_name: "hives", column_name: "created_at" },
         { table_name: "hives", column_name: "updated_at" },
+        { table_name: "hive_inspections", column_name: "inspection_id" },
+        { table_name: "hive_inspections", column_name: "hive_id" },
+        { table_name: "hive_inspections", column_name: "inspection_date" },
+        { table_name: "hive_inspections", column_name: "inspection_time" },
+        { table_name: "hive_inspections", column_name: "queen_right" },
+        { table_name: "hive_inspections", column_name: "eggs" },
+        { table_name: "hive_inspections", column_name: "larva" },
+        { table_name: "hive_inspections", column_name: "capped_brood" },
+        { table_name: "hive_inspections", column_name: "brood_pattern" },
+        { table_name: "hive_inspections", column_name: "additional_notes" },
+        { table_name: "hive_inspections", column_name: "created_at" },
+        { table_name: "hive_inspections", column_name: "updated_at" },
       ],
     });
 

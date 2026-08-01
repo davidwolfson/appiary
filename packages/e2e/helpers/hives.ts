@@ -2,6 +2,8 @@ import type { Page, Route } from "@playwright/test";
 
 import type {
   CreateHiveRequest,
+  CreateHiveInspectionRequest,
+  HiveInspectionResponse,
   HiveResponse,
   ListHivesResponse,
   UpdateHiveRequest,
@@ -12,6 +14,23 @@ export function createHive(overrides: Partial<HiveResponse> = {}): HiveResponse 
     hiveId: "hive-123",
     name: "North Field",
     status: true,
+    inspections: [],
+    ...overrides,
+  };
+}
+
+export function createInspection(overrides: Partial<HiveInspectionResponse> = {}): HiveInspectionResponse {
+  return {
+    inspectionId: "inspection-123", hiveId: "hive-123", inspectionDate: "2026-07-30", inspectionTime: "09:15",
+    queenRight: true, eggs: true, larva: true, cappedBrood: false, broodPattern: "good", additionalNotes: "Healthy colony",
+    ...overrides,
+  };
+}
+
+export function createInspectionInput(overrides: Partial<CreateHiveInspectionRequest> = {}): CreateHiveInspectionRequest {
+  return {
+    inspectionDate: "2026-07-31", inspectionTime: "10:30", queenRight: true, eggs: true,
+    larva: false, cappedBrood: true, broodPattern: "fair", additionalNotes: "Add feed",
     ...overrides,
   };
 }
@@ -87,5 +106,21 @@ export async function mockUpdateHiveRequest(
     await handler(route, hiveId, payload);
   });
 
+  return { requests };
+}
+
+export async function mockCreateInspectionRequest(
+  page: Page,
+  handler: (route: Route, hiveId: string, payload: CreateHiveInspectionRequest) => Promise<void>,
+): Promise<{ requests: Array<{ hiveId: string; payload: CreateHiveInspectionRequest }> }> {
+  const requests: Array<{ hiveId: string; payload: CreateHiveInspectionRequest }> = [];
+  await page.route("**/api/hives/*/inspections", async (route) => {
+    if (route.request().method() !== "POST") { await route.fallback(); return; }
+    const segments = new URL(route.request().url()).pathname.split("/");
+    const hiveId = segments.at(-2) ?? "";
+    const payload = route.request().postDataJSON() as CreateHiveInspectionRequest;
+    requests.push({ hiveId, payload });
+    await handler(route, hiveId, payload);
+  });
   return { requests };
 }

@@ -4,7 +4,10 @@ import { createAuthenticatedUser, visitAsAuthenticatedUser } from "../../helpers
 import {
   createHive,
   createHiveInput,
+  createInspection,
+  createInspectionInput,
   mockCreateHiveRequest,
+  mockCreateInspectionRequest,
   mockListHivesRequest,
   mockUpdateHiveRequest,
 } from "../../helpers/hives";
@@ -357,5 +360,214 @@ test.describe("hives dashboard", () => {
     await expect(dashboardPage.editHiveModal).toBeVisible();
     await expect(page).toHaveURL(/\/$/);
     await expectNoRequests(requests);
+  });
+
+  test("opens Add Inspection with local defaults and every form control", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+
+    // given I am authenticated with a named hive
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [createHive({ name: "North Orchard" })]);
+    await dashboardPage.goto();
+    const beforeOpen = await page.evaluate(() => {
+      const now = new Date();
+      const pad = (value: number) => String(value).padStart(2, "0");
+      return {
+        date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+        time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+      };
+    });
+
+    // when I open Add Inspection
+    await expect(dashboardPage.addInspectionButton("hive-123")).toHaveAttribute("title", "Add Inspection");
+    await dashboardPage.openAddInspectionModal("hive-123");
+    const afterOpen = await page.evaluate(() => {
+      const now = new Date();
+      const pad = (value: number) => String(value).padStart(2, "0");
+      return {
+        date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+        time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+      };
+    });
+
+    // then the modal identifies the hive and initializes the complete form
+    await expect(dashboardPage.inspectionModal.getByText("North Orchard", { exact: true })).toBeVisible();
+    expect([beforeOpen.date, afterOpen.date]).toContain(await dashboardPage.inspectionDateInput.inputValue());
+    expect([beforeOpen.time, afterOpen.time]).toContain(await dashboardPage.inspectionTimeInput.inputValue());
+    for (const checkbox of [dashboardPage.queenRightCheckbox, dashboardPage.eggsCheckbox, dashboardPage.larvaCheckbox, dashboardPage.cappedBroodCheckbox]) {
+      await expect(checkbox).toBeVisible();
+      await expect(checkbox).not.toBeChecked();
+    }
+    for (const label of ["Good", "Fair", "Poor", "NA"] as const) {
+      await expect(dashboardPage.broodPatternRadio(label)).toBeVisible();
+      await expect(dashboardPage.broodPatternRadio(label)).not.toBeChecked();
+    }
+    await expect(dashboardPage.additionalNotesInput).toBeVisible();
+    await expect(dashboardPage.saveInspectionButton).toBeVisible();
+    await expect(dashboardPage.cancelInspectionButton).toBeVisible();
+    await expect(dashboardPage.closeInspectionButton).toBeVisible();
+  });
+
+  test("creates an inspection with the nested API payload and adds it to history", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const input = createInspectionInput();
+    const { requests } = await mockCreateInspectionRequest(page, async (route, hiveId, payload) => {
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ inspection: createInspection({ hiveId, ...payload }) }) });
+    });
+
+    // given I am authenticated with a hive and have opened Add Inspection
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [
+      createHive(),
+      createHive({ hiveId: "hive-456", name: "South Field" }),
+    ]);
+    await dashboardPage.goto();
+    await dashboardPage.openAddInspectionModal("hive-123");
+
+    // when I enter inspection details and save
+    await dashboardPage.fillInspectionForm(input);
+    await dashboardPage.saveInspectionButton.click();
+
+    // then the nested request should be exact and the new date should appear in history
+    await expect.poll(() => requests.length).toBe(1);
+    expect(requests[0]).toEqual({ hiveId: "hive-123", payload: input });
+    await expect(dashboardPage.inspectionModal).toBeHidden();
+    await expect(dashboardPage.inspectionDateButton("hive-123", input.inspectionDate)).toBeVisible();
+    await expect(dashboardPage.hiveCard("hive-456").getByRole("table")).toHaveCount(0);
+  });
+
+  test("does not submit an inspection without its required date and time", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const { requests } = await mockCreateInspectionRequest(page, async (route) => {
+      await route.abort();
+    });
+
+    // given I have opened Add Inspection for a hive
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [createHive()]);
+    await dashboardPage.goto();
+    await dashboardPage.openAddInspectionModal("hive-123");
+
+    // when I clear the required date and time and save
+    await dashboardPage.inspectionDateInput.fill("");
+    await dashboardPage.inspectionTimeInput.fill("");
+    await dashboardPage.saveInspectionButton.click();
+
+    // then validation is visible without sending a request or leaving the modal
+    await expect(dashboardPage.inspectionModal.getByText("Inspection date is required.")).toBeVisible();
+    await expect(dashboardPage.inspectionModal.getByText("Inspection time is required.")).toBeVisible();
+    await expect(dashboardPage.inspectionModal).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    await expectNoRequests(requests);
+  });
+
+  test("prevents duplicate inspection submission while saving", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    const { requests } = await mockCreateInspectionRequest(page, async (route) => {
+      await pending;
+      await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ inspection: createInspection() }) });
+    });
+
+    // given a valid inspection is ready to save
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [createHive()]);
+    await dashboardPage.goto();
+    await dashboardPage.openAddInspectionModal("hive-123");
+    await dashboardPage.fillInspectionForm(createInspectionInput());
+
+    try {
+      // when I save while the API request remains pending
+      await dashboardPage.saveInspectionButton.click();
+
+      // then saving is disabled and only one request is sent
+      await expect(page.getByRole("button", { name: "Saving..." })).toBeDisabled();
+      await page.getByRole("button", { name: "Saving..." }).click({ force: true });
+      await expect.poll(() => requests.length).toBe(1);
+    } finally { release(); }
+  });
+
+  test("keeps Add Inspection open and displays API failures", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    await mockCreateInspectionRequest(page, async (route) => {
+      await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Could not save inspection" }) });
+    });
+
+    // given I have opened Add Inspection for a hive
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [createHive()]);
+    await dashboardPage.goto();
+    await dashboardPage.openAddInspectionModal("hive-123");
+
+    // when the inspection request fails
+    await dashboardPage.fillInspectionForm(createInspectionInput());
+    await dashboardPage.saveInspectionButton.click();
+
+    // then the modal remains open with the API message
+    await expect(dashboardPage.inspectionModal).toBeVisible();
+    await expect(dashboardPage.alert).toHaveText("Could not save inspection");
+    await expect(dashboardPage.inspectionDateInput).toHaveValue("2026-07-31");
+    await expect(dashboardPage.inspectionTimeInput).toHaveValue("10:30");
+    await expect(dashboardPage.queenRightCheckbox).toBeChecked();
+    await expect(dashboardPage.eggsCheckbox).toBeChecked();
+    await expect(dashboardPage.larvaCheckbox).not.toBeChecked();
+    await expect(dashboardPage.cappedBroodCheckbox).toBeChecked();
+    await expect(dashboardPage.broodPatternRadio("Fair")).toBeChecked();
+    await expect(dashboardPage.additionalNotesInput).toHaveValue("Add feed");
+  });
+
+  test("shows only the latest five inspection history entries", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const inspections = Array.from({ length: 6 }, (_, index) => createInspection({ inspectionId: `inspection-${index}`, inspectionDate: `2026-07-${String(30 - index).padStart(2, "0")}` }));
+
+    // given a hive has six inspections and another has none
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [createHive({ inspections }), createHive({ hiveId: "hive-empty", name: "Empty", inspections: [] })]);
+
+    // when I open the dashboard
+    await dashboardPage.goto();
+
+    // then only five dates render and the empty hive has no history table
+    await expect(dashboardPage.hiveCard("hive-123").getByRole("button", { name: /^2026-07-/ })).toHaveCount(5);
+    await expect(dashboardPage.hiveCard("hive-123").getByRole("button", { name: "2026-07-25" })).toHaveCount(0);
+    await expect(dashboardPage.hiveCard("hive-empty").getByRole("table")).toHaveCount(0);
+  });
+
+  test("opens history read-only and restores focus to its date trigger", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const inspection = createInspection();
+
+    // given an inspection date is visible in hive history
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [createHive({ inspections: [inspection] })]);
+    await dashboardPage.goto();
+    const dateTrigger = dashboardPage.hiveCard("hive-123").getByRole("button", { name: inspection.inspectionDate });
+
+    // when I open the historical inspection
+    await dashboardPage.openInspection("hive-123", inspection.inspectionDate);
+
+    // then every value is populated read-only and create actions are absent
+    await expect(dashboardPage.inspectionModal.getByText("North Field", { exact: true })).toBeVisible();
+    await expect(dashboardPage.inspectionDateInput).toBeDisabled();
+    await expect(dashboardPage.inspectionDateInput).toHaveValue(inspection.inspectionDate);
+    await expect(dashboardPage.inspectionTimeInput).toBeDisabled();
+    await expect(dashboardPage.inspectionTimeInput).toHaveValue(inspection.inspectionTime);
+    for (const checkbox of [dashboardPage.queenRightCheckbox, dashboardPage.eggsCheckbox, dashboardPage.larvaCheckbox]) {
+      await expect(checkbox).toBeDisabled();
+      await expect(checkbox).toBeChecked();
+    }
+    await expect(dashboardPage.cappedBroodCheckbox).toBeDisabled();
+    await expect(dashboardPage.cappedBroodCheckbox).not.toBeChecked();
+    for (const label of ["Good", "Fair", "Poor", "NA"] as const) await expect(dashboardPage.broodPatternRadio(label)).toBeDisabled();
+    await expect(dashboardPage.broodPatternRadio("Good")).toBeChecked();
+    await expect(dashboardPage.additionalNotesInput).toBeDisabled();
+    await expect(dashboardPage.additionalNotesInput).toHaveValue("Healthy colony");
+    await expect(dashboardPage.saveInspectionButton).toHaveCount(0);
+    await expect(dashboardPage.cancelInspectionButton).toHaveCount(0);
+    await expect(dashboardPage.closeInspectionButton).toBeFocused();
+    await dashboardPage.closeInspectionButton.click();
+    await expect(dashboardPage.inspectionModal).toBeHidden();
+    await expect(dateTrigger).toBeFocused();
   });
 });

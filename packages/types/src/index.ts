@@ -1,7 +1,11 @@
 export type {
+  BroodPattern,
+  CreateHiveInspectionRequest,
+  CreateHiveInspectionResponse,
   CreateHiveRequest,
   CreateHiveResponse,
   HiveResponse,
+  HiveInspectionResponse,
   ListHivesResponse,
   UpdateHiveRequest,
   UpdateHiveResponse,
