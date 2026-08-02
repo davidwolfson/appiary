@@ -5,13 +5,15 @@ import type { AuthenticatedUser, CreateHiveInspectionRequest, CreateHiveRequest,
 import { routes } from "../helpers/routes";
 
 export function createHivesDashboardPage(page: Page) {
-  const addHiveButton = page.getByRole("button", { name: "Add Hive" });
+  const hiveControls = page.getByRole("region", { name: "Hive controls" });
+  const addHiveButton = hiveControls.getByRole("button", { name: "Add Hive" });
   const logoutButton = page.getByRole("button", { name: "Logout" });
   const emptyState = page.getByRole("heading", { name: "No hives yet" });
   const addHiveModal = page.getByRole("dialog", { name: "Add Hive" });
   const editHiveModal = page.getByRole("dialog", { name: "Edit Hive" });
   const hiveNameInput = page.getByLabel("Hive Name");
-  const statusSelect = page.getByLabel("Status");
+  const statusSelect = page.getByLabel("Status", { exact: true });
+  const hiveStatusFilter = hiveControls.getByLabel("Hive Status", { exact: true });
   const saveButton = page.getByRole("button", { name: "Save Hive" });
   const savingButton = page.getByRole("button", { name: "Saving..." });
   const cancelButton = page.getByRole("button", { name: "Cancel" });
@@ -37,6 +39,7 @@ export function createHivesDashboardPage(page: Page) {
     hiveCard(hiveId).getByRole("button", { name: date, exact: true });
 
   return {
+    hiveControls,
     addHiveButton,
     logoutButton,
     emptyState,
@@ -61,6 +64,7 @@ export function createHivesDashboardPage(page: Page) {
     inspectionDateButton,
     hiveNameInput,
     statusSelect,
+    hiveStatusFilter,
     saveButton,
     savingButton,
     cancelButton,
@@ -79,6 +83,9 @@ export function createHivesDashboardPage(page: Page) {
       const card = hiveCard(hiveId);
       await expect(card.getByRole("heading", { name, exact: true })).toBeVisible();
       await expect(card.getByText(status, { exact: true })).toBeVisible();
+    },
+    async selectHiveFilter(filter: "Active" | "All" | "Inactive"): Promise<void> {
+      await hiveStatusFilter.selectOption({ label: filter });
     },
     async openAddHiveModal(): Promise<void> {
       await addHiveButton.click();

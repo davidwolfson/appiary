@@ -101,8 +101,10 @@ describe("HivesDashboardComponent", () => {
     // when the dashboard view is refreshed
     fixture.detectChanges();
 
-    // then the loading message is visible
+    // then the loading message and controls remain visible with filtering disabled
     expect(fixture.nativeElement.textContent).toContain("Loading hives...");
+    expect(fixture.nativeElement.querySelector("[aria-label='Add Hive']")).not.toBeNull();
+    expect((fixture.nativeElement.querySelector("#hive-status-filter") as HTMLSelectElement).disabled).toBe(true);
   });
 
   it("displays empty state", () => {
@@ -114,8 +116,26 @@ describe("HivesDashboardComponent", () => {
     expect(fixture.nativeElement.textContent).toContain("No hives yet");
   });
 
-  it("renders one hive card per hive", () => {
-    // given the store contains two hives
+  it("groups the hive controls above the hive displays", () => {
+    // given the dashboard is showing its empty hive display
+    const controls = fixture.nativeElement.querySelector("[aria-label='Hive controls']") as HTMLElement;
+    const emptyState = fixture.nativeElement.querySelector(".empty-state") as HTMLElement;
+
+    // when the controls card is inspected
+    const filter = controls.querySelector("#hive-status-filter");
+    const addButton = controls.querySelector("[aria-label='Add Hive']") as HTMLButtonElement;
+    const icon = addButton.querySelector(".add-hive-icon");
+
+    // then both controls are grouped before the hive display and the add action has visible text
+    expect(controls.classList.contains("card")).toBe(true);
+    expect(filter).not.toBeNull();
+    expect(addButton.textContent).toContain("Add Hive");
+    expect(icon?.getAttribute("aria-hidden")).toBe("true");
+    expect(controls.compareDocumentPosition(emptyState) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
+  it("shows only active hives by default", () => {
+    // given the store contains an active and an inactive hive
     hivesState.set([
       { hiveId: "hive-1", name: "North Field", status: true },
       { hiveId: "hive-2", name: "South Field", status: false },
@@ -125,9 +145,63 @@ describe("HivesDashboardComponent", () => {
     // when the dashboard view is refreshed
     fixture.detectChanges();
 
-    // then both hive cards are visible
-    expect(fixture.nativeElement.textContent).toContain("North Field");
-    expect(fixture.nativeElement.textContent).toContain("South Field");
+    // then Active is selected and only the active card is visible
+    expect((fixture.nativeElement.querySelector("#hive-status-filter") as HTMLSelectElement).value).toBe("active");
+    expect(fixture.nativeElement.querySelector("[data-testid='hive-card-hive-1']")).not.toBeNull();
+    expect(fixture.nativeElement.querySelector("[data-testid='hive-card-hive-2']")).toBeNull();
+  });
+
+  it("shows all hives when All is selected", () => {
+    // given the store contains an active and an inactive hive
+    hivesState.set([
+      { hiveId: "hive-1", name: "North Field", status: true },
+      { hiveId: "hive-2", name: "South Field", status: false },
+    ]);
+    hasHivesState.set(true);
+    fixture.detectChanges();
+
+    // when All is selected
+    const filter = fixture.nativeElement.querySelector("#hive-status-filter") as HTMLSelectElement;
+    filter.value = "all";
+    filter.dispatchEvent(new Event("change"));
+    fixture.detectChanges();
+
+    // then both cards are visible
+    expect(fixture.nativeElement.querySelector("[data-testid='hive-card-hive-1']")).not.toBeNull();
+    expect(fixture.nativeElement.querySelector("[data-testid='hive-card-hive-2']")).not.toBeNull();
+  });
+
+  it("shows only inactive hives when Inactive is selected", () => {
+    // given the store contains an active and an inactive hive
+    hivesState.set([
+      { hiveId: "hive-1", name: "North Field", status: true },
+      { hiveId: "hive-2", name: "South Field", status: false },
+    ]);
+    hasHivesState.set(true);
+    fixture.detectChanges();
+
+    // when Inactive is selected
+    const filter = fixture.nativeElement.querySelector("#hive-status-filter") as HTMLSelectElement;
+    filter.value = "inactive";
+    filter.dispatchEvent(new Event("change"));
+    fixture.detectChanges();
+
+    // then only the inactive card is visible
+    expect(fixture.nativeElement.querySelector("[data-testid='hive-card-hive-1']")).toBeNull();
+    expect(fixture.nativeElement.querySelector("[data-testid='hive-card-hive-2']")).not.toBeNull();
+  });
+
+  it("distinguishes filtered results from an empty apiary", () => {
+    // given the store contains only an inactive hive under the default Active filter
+    hivesState.set([{ hiveId: "hive-1", name: "North Field", status: false }]);
+    hasHivesState.set(true);
+
+    // when the dashboard view is refreshed
+    fixture.detectChanges();
+
+    // then a filter-specific empty state is shown instead of the account empty state
+    expect(fixture.nativeElement.textContent).toContain("No active hives");
+    expect(fixture.nativeElement.textContent).not.toContain("No hives yet");
   });
 
   it("opens the Add Hive modal from the Add Hive button", () => {
@@ -220,6 +294,10 @@ describe("HivesDashboardComponent", () => {
       { hiveId: "hive-1", name: "North Field", status: false },
     ]);
     hasHivesState.set(true);
+    fixture.detectChanges();
+    const filter = fixture.nativeElement.querySelector("#hive-status-filter") as HTMLSelectElement;
+    filter.value = "inactive";
+    filter.dispatchEvent(new Event("change"));
     fixture.detectChanges();
 
     // when the card edit button is clicked
@@ -317,6 +395,10 @@ describe("HivesDashboardComponent", () => {
       { hiveId: "hive-1", name: "North Field", status: false },
     ]);
     hasHivesState.set(true);
+    fixture.detectChanges();
+    const filter = fixture.nativeElement.querySelector("#hive-status-filter") as HTMLSelectElement;
+    filter.value = "inactive";
+    filter.dispatchEvent(new Event("change"));
     fixture.detectChanges();
     fixture.nativeElement.querySelector("[aria-label='Edit Hive']").click();
     fixture.detectChanges();
