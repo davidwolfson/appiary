@@ -58,13 +58,34 @@ body {
   padding-bottom: 1.5rem;
 }
 
+.hive-controls-card {
+  background: var(--app-panel);
+}
+
+.hive-controls-filters,
+.hive-controls-actions {
+  min-width: 0;
+}
+
+.hive-controls-filters {
+  flex: 1 1 14rem;
+}
+
+.hive-status-filter-control {
+  width: 100%;
+  max-width: 18rem;
+}
+
 .add-hive-button {
-  width: 2.5rem;
-  height: 2.5rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.add-hive-icon {
+  font-size: 1.25rem;
   line-height: 1;
 }
 

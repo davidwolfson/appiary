@@ -9,6 +9,8 @@ import { HivesStore } from "./hives.store";
 import type { CreateHiveInspectionRequest, CreateHiveRequest } from "@appiary/types";
 import type { HiveInspectionViewModel, HiveViewModel } from "./hives.mapper";
 
+type HiveStatusFilter = "active" | "all" | "inactive";
+
 @Component({
   selector: "app-hives-dashboard",
   standalone: true,
@@ -25,6 +27,14 @@ export class HivesDashboardComponent implements OnInit {
   protected readonly selectedHive = signal<HiveViewModel | null>(null);
   protected readonly inspectionHive = signal<HiveViewModel | null>(null);
   protected readonly selectedInspection = signal<HiveInspectionViewModel | null>(null);
+  protected readonly hiveStatusFilter = signal<HiveStatusFilter>("active");
+  protected readonly filteredHives = computed(() => {
+    const filter = this.hiveStatusFilter();
+    const hives = this.hivesStore.hives();
+
+    if (filter === "all") return hives;
+    return hives.filter((hive) => filter === "active" ? hive.status : !hive.status);
+  });
   protected readonly hasOpenModal = computed(() => this.isModalOpen() || this.inspectionHive() !== null);
 
   ngOnInit(): void {
@@ -98,6 +108,13 @@ export class HivesDashboardComponent implements OnInit {
 
   protected async logout(): Promise<void> {
     await this.authStore.logout();
+  }
+
+  protected filterHives(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    if (value === "active" || value === "all" || value === "inactive") {
+      this.hiveStatusFilter.set(value);
+    }
   }
 
   private captureModalTrigger(): void {

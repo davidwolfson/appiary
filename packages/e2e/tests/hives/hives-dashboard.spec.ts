@@ -56,7 +56,7 @@ test.describe("hives dashboard", () => {
     await expect(dashboardPage.emptyState).toBeVisible();
   });
 
-  test("renders hive cards returned by the hives API", async ({ page }) => {
+  test("shows only active hive cards by default", async ({ page }) => {
     const user = createAuthenticatedUser();
     const dashboardPage = createHivesDashboardPage(page);
 
@@ -70,8 +70,47 @@ test.describe("hives dashboard", () => {
     // when I navigate to the dashboard
     await dashboardPage.goto();
 
-    // then each hive should be rendered as a card
+    // then Active should be selected and only the active hive should be rendered
+    await expect(dashboardPage.hiveStatusFilter).toHaveValue("active");
     await dashboardPage.expectHiveCard("hive-1", "North Field", "Active");
+    await expect(dashboardPage.hiveCard("hive-2")).toHaveCount(0);
+  });
+
+  test("shows every hive card when All is selected", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+
+    // given I am authenticated and the API returns active and inactive hives
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [
+      createHive({ hiveId: "hive-1", name: "North Field", status: true }),
+      createHive({ hiveId: "hive-2", name: "South Field", status: false }),
+    ]);
+    await dashboardPage.goto();
+
+    // when I select All
+    await dashboardPage.selectHiveFilter("All");
+
+    // then both hives should be rendered
+    await dashboardPage.expectHiveCard("hive-1", "North Field", "Active");
+    await dashboardPage.expectHiveCard("hive-2", "South Field", "Inactive");
+  });
+
+  test("shows only inactive hive cards when Inactive is selected", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+
+    // given I am authenticated and the API returns active and inactive hives
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await mockListHivesRequest(page, [
+      createHive({ hiveId: "hive-1", name: "North Field", status: true }),
+      createHive({ hiveId: "hive-2", name: "South Field", status: false }),
+    ]);
+    await dashboardPage.goto();
+
+    // when I select Inactive
+    await dashboardPage.selectHiveFilter("Inactive");
+
+    // then only the inactive hive should be rendered
+    await expect(dashboardPage.hiveCard("hive-1")).toHaveCount(0);
     await dashboardPage.expectHiveCard("hive-2", "South Field", "Inactive");
   });
 
@@ -126,7 +165,7 @@ test.describe("hives dashboard", () => {
     await expect(dashboardPage.alert).toHaveText("Could not load hives");
   });
 
-  test("opens the Add Hive modal from an accessible icon button", async ({ page }) => {
+  test("opens the Add Hive modal from the labeled dashboard controls", async ({ page }) => {
     const user = createAuthenticatedUser();
     const dashboardPage = createHivesDashboardPage(page);
 
@@ -134,8 +173,10 @@ test.describe("hives dashboard", () => {
     await visitAsAuthenticatedUser(page, user);
     await dashboardPage.goto();
 
-    // when I click the Add Hive button
-    await expect(dashboardPage.addHiveButton).toHaveAttribute("title", "Add Hive");
+    // when I view the grouped controls and click the visibly labeled Add Hive button
+    await expect(dashboardPage.hiveControls).toBeVisible();
+    await expect(dashboardPage.hiveStatusFilter).toBeVisible();
+    await expect(dashboardPage.addHiveButton).toContainText("Add Hive");
     await dashboardPage.openAddHiveModal();
 
     // then I should see the Add Hive modal
@@ -183,15 +224,14 @@ test.describe("hives dashboard", () => {
     await dashboardPage.goto();
     await dashboardPage.openAddHiveModal();
 
-    // when I submit valid hive details
+    // when I submit valid hive details and select Inactive
     await dashboardPage.fillForm(input);
     await dashboardPage.submit();
+    await dashboardPage.selectHiveFilter("Inactive");
 
-    // then the request should contain the hive name and status
+    // then the request should be exact, the modal should close, and the created hive should appear
     await expect.poll(() => requests.length).toBe(1);
     expect(requests[0]).toEqual(input);
-
-    // then the modal should close and the created hive should appear
     await expect(dashboardPage.modal).toBeHidden();
     await dashboardPage.expectHiveCard("hive-2", "South Field", "Inactive");
   });
@@ -266,6 +306,7 @@ test.describe("hives dashboard", () => {
       createHive({ hiveId: "hive-1", name: "North Field", status: false }),
     ]);
     await dashboardPage.goto();
+    await dashboardPage.selectHiveFilter("Inactive");
 
     // when I click the hive card edit button
     await expect(dashboardPage.editHiveButton("hive-1")).toHaveAttribute("title", "Edit Hive");
@@ -298,15 +339,14 @@ test.describe("hives dashboard", () => {
     await dashboardPage.goto();
     await dashboardPage.openEditHiveModal("hive-1");
 
-    // when I submit valid updated hive details
+    // when I submit valid updated hive details and select All
     await dashboardPage.fillForm(input);
     await dashboardPage.submit();
+    await dashboardPage.selectHiveFilter("All");
 
-    // then the update request should target the selected hive with the edited payload
+    // then the update request should be exact and both cards should show their current values
     await expect.poll(() => requests.length).toBe(1);
     expect(requests[0]).toEqual({ hiveId: "hive-1", payload: input });
-
-    // then the modal should close, the targeted card should update, and the other card should remain unchanged
     await expect(dashboardPage.editHiveModal).toBeHidden();
     await dashboardPage.expectHiveCard("hive-1", "South Field", "Inactive");
     await dashboardPage.expectHiveCard("hive-2", "West Field", "Active");
