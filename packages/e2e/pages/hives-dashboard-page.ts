@@ -77,7 +77,9 @@ export function createHivesDashboardPage(page: Page) {
     alert,
     loadingStatus,
     async goto(): Promise<void> {
-      await page.goto(routes.home);
+      if (new URL(page.url()).pathname !== routes.home) {
+        await page.goto(routes.home);
+      }
     },
     async expectSignedIn(user: AuthenticatedUser): Promise<void> {
       await expect(page.getByRole("heading", { name: `${user.accountName} Hives` })).toBeVisible();

@@ -2,154 +2,92 @@ import { provideZonelessChangeDetection } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { Router } from "@angular/router";
 import { vi } from "vitest";
-
-import type { AuthenticatedUser, LoginRequest } from "@appiary/types";
-
-import { AuthService } from "./auth.service";
+import { AuthActivityService } from "./auth-activity.service";
 import type { AuthSession } from "./auth.mapper";
+import { AuthService } from "./auth.service";
 import { AuthStore } from "./auth.store";
 
 describe("AuthStore", () => {
   let store: AuthStore;
-  let authService: {
-    initialize?: never;
-    login: ReturnType<typeof vi.fn>;
-    logout: ReturnType<typeof vi.fn>;
-    register: ReturnType<typeof vi.fn>;
-    restoreSession: ReturnType<typeof vi.fn>;
-  };
-  let router: {
-    navigateByUrl: ReturnType<typeof vi.fn>;
-  };
-
-  const user: AuthenticatedUser = {
-    id: "user-1",
-    email: "beekeeper@example.com",
-    accountId: "account-1",
-    accountName: "Apiary",
-  };
-
-  const session: AuthSession = {
-    token: "token-123",
-    user,
-  };
+  let inactive: () => void;
+  let authService: Record<"login" | "logout" | "register" | "clearSession" | "getToken", ReturnType<typeof vi.fn>>;
+  let activity: { start: ReturnType<typeof vi.fn>; stop: ReturnType<typeof vi.fn> };
+  let router: { url: string; navigateByUrl: ReturnType<typeof vi.fn> };
+  const session: AuthSession = { token: "token-123", user: { id: "user-1", email: "beekeeper@example.com", accountId: "account-1", accountName: "Apiary" } };
 
   beforeEach(() => {
-    authService = {
-      login: vi.fn(),
-      logout: vi.fn(),
-      register: vi.fn(),
-      restoreSession: vi.fn(),
-    };
-
-    router = {
-      navigateByUrl: vi.fn().mockResolvedValue(true),
-    };
-
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        AuthStore,
-        { provide: AuthService, useValue: authService },
-        { provide: Router, useValue: router },
-      ],
-    });
-
+    authService = { login: vi.fn(), logout: vi.fn(), register: vi.fn(), clearSession: vi.fn(), getToken: vi.fn().mockReturnValue(null) };
+    activity = { start: vi.fn((callback: () => void) => { inactive = callback; }), stop: vi.fn() };
+    router = { url: "/login", navigateByUrl: vi.fn().mockResolvedValue(true) };
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), AuthStore, { provide: AuthService, useValue: authService }, { provide: AuthActivityService, useValue: activity }, { provide: Router, useValue: router }] });
     store = TestBed.inject(AuthStore);
   });
 
-  it("initializes from a restored session and clears the initializing flag", async () => {
-    // given the auth service can restore a session
-    authService.restoreSession.mockResolvedValue(session);
-
-    // when the store initializes
-    await store.initialize();
-
-    // then the session is exposed and initialization completes
-    expect(authService.restoreSession).toHaveBeenCalled();
-    expect(store.session()).toEqual(session);
-    expect(store.user()).toEqual(user);
-    expect(store.isAuthenticated()).toBe(true);
-    expect(store.isInitializing()).toBe(false);
-  });
-
-  it("logs in, stores the session, and redirects home", async () => {
-    // given valid credentials resolve to an auth session
-    const payload: LoginRequest = {
-      email: "beekeeper@example.com",
-      password: "secret123",
-    };
-
+  it("starts activity monitoring after login", async () => {
+    // given valid credentials resolve to a session
     authService.login.mockResolvedValue(session);
-
-    // when the store logs in
-    await store.login(payload);
-
-    // then the session is stored and navigation goes home
-    expect(authService.login).toHaveBeenCalledWith(payload);
+    // when login completes
+    await store.login({ email: "beekeeper@example.com", password: "secret123" });
+    // then the session is stored and monitoring starts
     expect(store.session()).toEqual(session);
-    expect(store.error()).toBeNull();
-    expect(store.isLoading()).toBe(false);
-    expect(store.isAuthenticated()).toBe(true);
+    expect(activity.start).toHaveBeenCalledOnce();
     expect(router.navigateByUrl).toHaveBeenCalledWith("/");
   });
 
-  it("surfaces API error messages on login failure and rethrows", async () => {
-    // given the login API rejects with a message
-    const error = {
-      error: {
-        message: "Invalid credentials",
-      },
-    };
-
-    authService.login.mockRejectedValue(error);
-
-    // when the store logs in
-    const result = store.login({
-      email: "beekeeper@example.com",
-      password: "wrong-password",
-    });
-
-    // then the error is rethrown and exposed without navigation
-    await expect(result).rejects.toBe(error);
-
-    expect(store.session()).toBeNull();
+  it("does not monitor a failed login", async () => {
+    // given login fails
+    authService.login.mockRejectedValue({ error: { message: "Invalid credentials" } });
+    // when login is attempted
+    const result = store.login({ email: "beekeeper@example.com", password: "wrong" });
+    // then the error is exposed without monitoring
+    await expect(result).rejects.toBeTruthy();
     expect(store.error()).toBe("Invalid credentials");
-    expect(store.isLoading()).toBe(false);
-    expect(router.navigateByUrl).not.toHaveBeenCalled();
+    expect(activity.start).not.toHaveBeenCalled();
   });
 
-  it("logs out, clears the session, and redirects to login", async () => {
-    // given the store has a session and logout succeeds
-    authService.restoreSession.mockResolvedValue(session);
-    authService.logout.mockResolvedValue(undefined);
-
-    // when the store logs out
-    await store.initialize();
-    await store.logout();
-
-    // then the session is cleared and navigation goes to login
-    expect(authService.logout).toHaveBeenCalled();
+  it("invalidates and redirects when inactivity expires", async () => {
+    // given a monitored authenticated session
+    authService.login.mockResolvedValue(session);
+    await store.login({ email: "beekeeper@example.com", password: "secret123" });
+    router.url = "/";
+    // when inactivity expires
+    inactive();
+    await Promise.resolve();
+    // then all local session state is cleared
+    expect(activity.stop).toHaveBeenCalled();
+    expect(authService.clearSession).toHaveBeenCalled();
     expect(store.session()).toBeNull();
-    expect(store.isAuthenticated()).toBe(false);
-    expect(store.error()).toBeNull();
-    expect(store.isLoading()).toBe(false);
-    expect(router.navigateByUrl).toHaveBeenCalledWith("/login");
+    expect(router.navigateByUrl).toHaveBeenLastCalledWith("/login");
   });
 
-  it("keeps the current session and exposes a fallback message when logout fails", async () => {
-    // given the store has a session and logout fails without an API message
-    authService.restoreSession.mockResolvedValue(session);
+  it("logs out locally even when server logout fails", async () => {
+    // given an authenticated session whose logout request fails
+    authService.login.mockResolvedValue(session);
     authService.logout.mockRejectedValue(new Error("logout failed"));
-
-    // when the store logs out
-    await store.initialize();
+    await store.login({ email: "beekeeper@example.com", password: "secret123" });
+    router.url = "/";
+    // when logout is attempted
     await store.logout();
-
-    // then the session remains and a fallback error is exposed
-    expect(store.session()).toEqual(session);
+    // then local state is invalidated and login is shown
+    expect(store.session()).toBeNull();
     expect(store.error()).toBe("Something went wrong");
+    expect(router.navigateByUrl).toHaveBeenLastCalledWith("/login");
+  });
+
+  it("stops loading when the logout redirect fails", async () => {
+    // given an authenticated session whose logout redirect will fail
+    authService.login.mockResolvedValue(session);
+    authService.logout.mockResolvedValue(undefined);
+    await store.login({ email: "beekeeper@example.com", password: "secret123" });
+    router.url = "/";
+    router.navigateByUrl.mockRejectedValueOnce(new Error("navigation failed"));
+
+    // when logout is attempted
+    const result = store.logout();
+
+    // then the navigation failure propagates after loading is reset
+    await expect(result).rejects.toThrow("navigation failed");
     expect(store.isLoading()).toBe(false);
-    expect(router.navigateByUrl).not.toHaveBeenCalledWith("/login");
+    expect(store.session()).toBeNull();
   });
 });

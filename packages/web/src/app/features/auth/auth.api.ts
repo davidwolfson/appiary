@@ -1,7 +1,7 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable, inject } from "@angular/core";
 
-import type { AuthResponse, AuthenticatedUser, LoginRequest, RegisterRequest } from "@appiary/types";
+import type { AuthResponse, LoginRequest, RegisterRequest } from "@appiary/types";
 
 import { apiConfig } from "../../core/api/api.config";
 
@@ -20,10 +20,6 @@ export class AuthApi {
 
   logout() {
     return this.http.post<void>(`${this.authUrl}/logout`, {});
-  }
-
-  getMe() {
-    return this.http.get<AuthenticatedUser>(`${this.authUrl}/me`);
   }
 }
 

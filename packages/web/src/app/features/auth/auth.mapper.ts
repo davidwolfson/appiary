@@ -11,10 +11,3 @@ export function mapToAuthSession(response: AuthResponse): AuthSession {
     user: response.user,
   };
 }
-
-export function mapToAuthenticatedSession(user: AuthenticatedUser, token: string): AuthSession {
-  return {
-    token,
-    user,
-  };
-}

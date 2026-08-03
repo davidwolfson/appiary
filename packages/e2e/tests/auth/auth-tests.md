@@ -160,3 +160,9 @@ Given I am on the register page
 When I click the "Sign in" link
 Then I should navigate to `/login`
 Then I should see the login form
+# Session lifecycle
+
+- Authentication exists only for the current page lifetime; refreshing a protected page redirects to `/login`.
+- Five minutes without pointer, keyboard, touch, or scroll input clears the local session and redirects to `/login`.
+- Qualifying user input resets the full five-minute inactivity deadline.
+- Logout and API `401` responses use the same local invalidation behavior.

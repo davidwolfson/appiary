@@ -1,37 +1,35 @@
 import { HttpErrorResponse, HttpRequest, HttpResponse } from "@angular/common/http";
 import { provideZonelessChangeDetection } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { Router } from "@angular/router";
 import { lastValueFrom, of, throwError } from "rxjs";
 import { vi } from "vitest";
 
 import { AuthService } from "../../features/auth/auth.service";
+import { AuthStore } from "../../features/auth/auth.store";
 import { authInterceptor } from "./auth.interceptor";
 
 describe("authInterceptor", () => {
   let authService: {
-    clearSession: ReturnType<typeof vi.fn>;
     getToken: ReturnType<typeof vi.fn>;
   };
-  let router: {
-    navigateByUrl: ReturnType<typeof vi.fn>;
+  let authStore: {
+    invalidateSession: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
     authService = {
-      clearSession: vi.fn(),
       getToken: vi.fn(),
     };
 
-    router = {
-      navigateByUrl: vi.fn().mockResolvedValue(true),
+    authStore = {
+      invalidateSession: vi.fn().mockResolvedValue(undefined),
     };
 
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
         { provide: AuthService, useValue: authService },
-        { provide: Router, useValue: router },
+        { provide: AuthStore, useValue: authStore },
       ],
     });
   });
@@ -94,8 +92,7 @@ describe("authInterceptor", () => {
     // then the session is cleared and navigation goes to login
     await expect(result).rejects.toBe(unauthorizedError);
 
-    expect(authService.clearSession).toHaveBeenCalled();
-    expect(router.navigateByUrl).toHaveBeenCalledWith("/login");
+    expect(authStore.invalidateSession).toHaveBeenCalled();
   });
 
   it("does not redirect on non-401 responses", async () => {
@@ -118,7 +115,6 @@ describe("authInterceptor", () => {
     // then the error propagates without clearing or redirecting
     await expect(result).rejects.toBe(serverError);
 
-    expect(authService.clearSession).not.toHaveBeenCalled();
-    expect(router.navigateByUrl).not.toHaveBeenCalled();
+    expect(authStore.invalidateSession).not.toHaveBeenCalled();
   });
 });
