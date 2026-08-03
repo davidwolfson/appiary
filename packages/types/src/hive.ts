@@ -13,6 +13,18 @@ export interface HiveInspectionResponse {
   additionalNotes: string | null;
 }
 
+export interface InspectionPagination {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface ListHiveInspectionsResponse {
+  inspections: HiveInspectionResponse[];
+  pagination: InspectionPagination;
+}
+
 export interface CreateHiveInspectionRequest {
   inspectionDate: string;
   inspectionTime: string;
@@ -33,6 +45,7 @@ export interface HiveResponse {
   name: string;
   status: boolean;
   inspections: HiveInspectionResponse[];
+  inspectionPagination?: InspectionPagination;
 }
 
 export interface CreateHiveRequest {

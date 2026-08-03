@@ -253,7 +253,7 @@ describe("HivesDashboardComponent", () => {
     ]);
     hasHivesState.set(true);
     fixture.detectChanges();
-    const editButton = fixture.nativeElement.querySelector("[aria-label='Edit Hive']") as HTMLButtonElement;
+    const editButton = fixture.nativeElement.querySelector("[aria-label='Edit Hive for hive card 1']") as HTMLButtonElement;
     editButton.focus();
     editButton.click();
     fixture.detectChanges();
@@ -301,7 +301,7 @@ describe("HivesDashboardComponent", () => {
     fixture.detectChanges();
 
     // when the card edit button is clicked
-    fixture.nativeElement.querySelector("[aria-label='Edit Hive']").click();
+    fixture.nativeElement.querySelector("[aria-label='Edit Hive for hive card 1']").click();
     fixture.detectChanges();
 
     // then update errors are cleared and the modal is prefilled for editing
@@ -320,7 +320,7 @@ describe("HivesDashboardComponent", () => {
     ]);
     hasHivesState.set(true);
     fixture.detectChanges();
-    fixture.nativeElement.querySelector("[aria-label='Edit Hive']").click();
+    fixture.nativeElement.querySelector("[aria-label='Edit Hive for hive card 1']").click();
     fixture.detectChanges();
 
     // when valid hive details are submitted
@@ -348,7 +348,7 @@ describe("HivesDashboardComponent", () => {
     ]);
     hasHivesState.set(true);
     fixture.detectChanges();
-    fixture.nativeElement.querySelector("[aria-label='Edit Hive']").click();
+    fixture.nativeElement.querySelector("[aria-label='Edit Hive for hive card 1']").click();
     fixture.detectChanges();
 
     // when the edit submission fails
@@ -400,7 +400,7 @@ describe("HivesDashboardComponent", () => {
     filter.value = "inactive";
     filter.dispatchEvent(new Event("change"));
     fixture.detectChanges();
-    fixture.nativeElement.querySelector("[aria-label='Edit Hive']").click();
+    fixture.nativeElement.querySelector("[aria-label='Edit Hive for hive card 1']").click();
     fixture.detectChanges();
 
     const component = fixture.componentInstance as never as {
@@ -426,7 +426,7 @@ describe("HivesDashboardComponent", () => {
     ]);
     hasHivesState.set(true);
     fixture.detectChanges();
-    fixture.nativeElement.querySelector("[aria-label='Edit Hive']").click();
+    fixture.nativeElement.querySelector("[aria-label='Edit Hive for hive card 1']").click();
     fixture.detectChanges();
 
     // when the form is submitted with a blank name
@@ -529,7 +529,7 @@ describe("HivesDashboardComponent", () => {
     hivesState.set([{ hiveId: "hive-1", name: "North Field", status: true, inspections: [] }]);
     hasHivesState.set(true);
     fixture.detectChanges();
-    fixture.nativeElement.querySelector("[aria-label='Add Inspection']").click();
+    fixture.nativeElement.querySelector("[aria-label='Add Inspection for hive card 1']").click();
     fixture.detectChanges();
     const payload = { inspectionDate: "2026-07-31", inspectionTime: "10:30", queenRight: true, eggs: true, larva: false, cappedBrood: true };
 
@@ -550,7 +550,7 @@ describe("HivesDashboardComponent", () => {
     hivesState.set([{ hiveId: "hive-1", name: "North Field", status: true, inspections: [] }]);
     hasHivesState.set(true);
     fixture.detectChanges();
-    fixture.nativeElement.querySelector("[aria-label='Add Inspection']").click();
+    fixture.nativeElement.querySelector("[aria-label='Add Inspection for hive card 1']").click();
     fixture.detectChanges();
 
     // when inspection saving fails
@@ -564,3 +564,4 @@ describe("HivesDashboardComponent", () => {
     expect(fixture.nativeElement.textContent).toContain("Could not save inspection");
   });
 });
+

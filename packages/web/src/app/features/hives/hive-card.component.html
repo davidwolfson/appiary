@@ -3,10 +3,10 @@
   [attr.data-testid]="'hive-card-' + hive.hiveId"
 >
   <div class="position-absolute top-0 end-0 m-2 d-flex gap-2">
-    <button class="btn btn-primary btn-sm" type="button" aria-label="Add Inspection" title="Add Inspection" (click)="inspectHive()">
+    <button class="btn btn-primary btn-sm" type="button" [attr.aria-label]="'Add Inspection for hive card ' + (cardIndex + 1)" title="Add Inspection" (click)="inspectHive()">
       <span aria-hidden="true">+</span>
     </button>
-    <button class="btn btn-light btn-sm edit-hive-button" type="button" aria-label="Edit Hive" title="Edit Hive" (click)="editHive()">
+    <button class="btn btn-light btn-sm edit-hive-button" type="button" [attr.aria-label]="'Edit Hive for hive card ' + (cardIndex + 1)" title="Edit Hive" (click)="editHive()">
       <span aria-hidden="true">&#9998;</span>
     </button>
   </div>
@@ -23,7 +23,7 @@
 
     @if (inspections.length > 0) {
       <table class="table table-sm mb-0">
-        <caption class="visually-hidden">Latest inspections for {{ hive.name }}</caption>
+        <caption class="visually-hidden">Inspections for {{ hive.name }}</caption>
         <thead><tr><th scope="col">Inspection Date</th></tr></thead>
         <tbody>
           @for (inspection of inspections; track inspection.inspectionId) {
@@ -31,6 +31,24 @@
           }
         </tbody>
       </table>
+      @if (hasInspectionPagination) {
+        <nav class="d-flex justify-content-end gap-2" aria-label="Inspection history pages">
+          <button
+            class="btn btn-light btn-sm"
+            type="button"
+            [attr.aria-label]="'Previous inspections for hive card ' + (cardIndex + 1)"
+            [disabled]="isPreviousPageDisabled"
+            (click)="showPreviousInspections()"
+          ><span aria-hidden="true">&#8592;</span></button>
+          <button
+            class="btn btn-light btn-sm"
+            type="button"
+            [attr.aria-label]="'Next inspections for hive card ' + (cardIndex + 1)"
+            [disabled]="isNextPageDisabled"
+            (click)="showNextInspections()"
+          ><span aria-hidden="true">&#8594;</span></button>
+        </nav>
+      }
     }
   </div>
 </article>

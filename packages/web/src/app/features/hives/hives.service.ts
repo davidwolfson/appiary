@@ -27,6 +27,14 @@ export class HivesService {
     return mapToHiveViewModel(response.hive);
   }
 
+  async listInspections(hiveId: string, page: number) {
+    const response = await firstValueFrom(this.hivesApi.listInspections(hiveId, page));
+    return {
+      inspections: response.inspections.map(mapToHiveInspectionViewModel),
+      pagination: response.pagination,
+    };
+  }
+
   async updateHive(hiveId: string, payload: UpdateHiveRequest): Promise<HiveViewModel> {
     const response = await firstValueFrom(this.hivesApi.updateHive(hiveId, payload));
 

@@ -69,7 +69,7 @@ describe("HiveInspectionRepository PostgreSQL integration", () => {
     expect(count.rows[0].count).toBe("1");
   });
 
-  it("returns the latest five per hive with deterministic tie ordering", async () => {
+  it("returns complete histories per hive with deterministic tie ordering", async () => {
     // given two populated hives, one empty hive, and tied inspection timestamps
     const repository = new HiveInspectionRepository();
     const accountId = await createAccount("Inspection history account");
@@ -93,17 +93,18 @@ describe("HiveInspectionRepository PostgreSQL integration", () => {
     await insertInspection(secondHiveId, secondHiveInspectionId, "2026-07-20", "08:15", "2026-07-20T12:15:00Z");
 
     // when histories are retrieved in one repository call
-    const histories = await repository.findLatestForHiveIds([firstHiveId, secondHiveId, emptyHiveId]);
+    const histories = await repository.findFirstPageForHiveIds([firstHiveId, secondHiveId, emptyHiveId]);
 
-    // then each hive is represented, capped independently, and ties use descending UUID order
-    expect(histories.get(firstHiveId)).toHaveLength(5);
-    expect(histories.get(firstHiveId)?.slice(0, 2).map(({ inspectionId }) => inspectionId))
+    // then each hive has a bounded first page and ties use descending UUID order
+    expect(histories.get(firstHiveId)?.inspections).toHaveLength(5);
+    expect(histories.get(firstHiveId)?.totalItems).toBe(7);
+    expect(histories.get(firstHiveId)?.inspections.slice(0, 2).map(({ inspectionId }) => inspectionId))
       .toEqual([...tiedInspectionIds].reverse());
-    expect(histories.get(firstHiveId)?.map(({ inspectionDate }) => inspectionDate))
+    expect(histories.get(firstHiveId)?.inspections.map(({ inspectionDate }) => inspectionDate))
       .toEqual(["2026-07-30", "2026-07-30", "2026-07-29", "2026-07-28", "2026-07-27"]);
-    expect(histories.get(secondHiveId)?.map(({ inspectionId }) => inspectionId))
+    expect(histories.get(secondHiveId)?.inspections.map(({ inspectionId }) => inspectionId))
       .toEqual([secondHiveInspectionId]);
-    expect(histories.get(emptyHiveId)).toEqual([]);
+    expect(histories.get(emptyHiveId)).toEqual({ inspections: [], totalItems: 0 });
   });
 
   async function createAccount(name: string): Promise<string> {

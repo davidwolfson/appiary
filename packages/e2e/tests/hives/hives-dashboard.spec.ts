@@ -451,6 +451,10 @@ test.describe("hives dashboard", () => {
   test("creates an inspection with the nested API payload and adds it to history", async ({ page }) => {
     const dashboardPage = createHivesDashboardPage(page);
     const input = createInspectionInput();
+    const existingInspections = Array.from({ length: 5 }, (_, index) => createInspection({
+      inspectionId: `existing-inspection-${index}`,
+      inspectionDate: `2026-07-${String(30 - index).padStart(2, "0")}`,
+    }));
     const { requests } = await mockCreateInspectionRequest(page, async (route, hiveId, payload) => {
       await route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ inspection: createInspection({ hiveId, ...payload }) }) });
     });
@@ -458,7 +462,7 @@ test.describe("hives dashboard", () => {
     // given I am authenticated with a hive and have opened Add Inspection
     await visitAsAuthenticatedUser(page, createAuthenticatedUser());
     await mockListHivesRequest(page, [
-      createHive(),
+      createHive({ inspections: existingInspections }),
       createHive({ hiveId: "hive-456", name: "South Field" }),
     ]);
     await dashboardPage.goto();
@@ -468,11 +472,14 @@ test.describe("hives dashboard", () => {
     await dashboardPage.fillInspectionForm(input);
     await dashboardPage.saveInspectionButton.click();
 
-    // then the nested request should be exact and the new date should appear in history
+    // then the nested request is exact, the newest page is shown, and older history remains reachable
     await expect.poll(() => requests.length).toBe(1);
     expect(requests[0]).toEqual({ hiveId: "hive-123", payload: input });
     await expect(dashboardPage.inspectionModal).toBeHidden();
     await expect(dashboardPage.inspectionDateButton("hive-123", input.inspectionDate)).toBeVisible();
+    await expect(dashboardPage.previousInspectionsButton("hive-123")).toBeDisabled();
+    await dashboardPage.showNextInspections("hive-123");
+    await expect(dashboardPage.inspectionDateButton("hive-123", "2026-07-26")).toBeVisible();
     await expect(dashboardPage.hiveCard("hive-456").getByRole("table")).toHaveCount(0);
   });
 
@@ -557,21 +564,41 @@ test.describe("hives dashboard", () => {
     await expect(dashboardPage.additionalNotesInput).toHaveValue("Add feed");
   });
 
-  test("shows only the latest five inspection history entries", async ({ page }) => {
+  test("paginates inspection histories independently within each hive", async ({ page }) => {
     const dashboardPage = createHivesDashboardPage(page);
     const inspections = Array.from({ length: 6 }, (_, index) => createInspection({ inspectionId: `inspection-${index}`, inspectionDate: `2026-07-${String(30 - index).padStart(2, "0")}` }));
+    const otherInspections = Array.from({ length: 6 }, (_, index) => createInspection({ hiveId: "hive-other", inspectionId: `other-inspection-${index}`, inspectionDate: `2026-06-${String(30 - index).padStart(2, "0")}` }));
 
-    // given a hive has six inspections and another has none
+    // given two hives have six inspections and another has none
     await visitAsAuthenticatedUser(page, createAuthenticatedUser());
-    await mockListHivesRequest(page, [createHive({ inspections }), createHive({ hiveId: "hive-empty", name: "Empty", inspections: [] })]);
+    await mockListHivesRequest(page, [
+      createHive({ inspections }),
+      createHive({ hiveId: "hive-other", name: "Other", inspections: otherInspections }),
+      createHive({ hiveId: "hive-empty", name: "Empty", inspections: [] }),
+    ]);
 
-    // when I open the dashboard
+    // when I open the dashboard and advance only the first hive
     await dashboardPage.goto();
+    await expect(dashboardPage.previousInspectionsButton("hive-123")).toBeDisabled();
+    await expect(dashboardPage.nextInspectionsButton("hive-123")).toBeEnabled();
+    await dashboardPage.showNextInspections("hive-123");
 
-    // then only five dates render and the empty hive has no history table
-    await expect(dashboardPage.hiveCard("hive-123").getByRole("button", { name: /^2026-07-/ })).toHaveCount(5);
-    await expect(dashboardPage.hiveCard("hive-123").getByRole("button", { name: "2026-07-25" })).toHaveCount(0);
+    // then its older entry and boundary state appear without changing the other hive
+    await expect(dashboardPage.inspectionDateButton("hive-123", "2026-07-25")).toBeVisible();
+    await expect(dashboardPage.previousInspectionsButton("hive-123")).toBeEnabled();
+    await expect(dashboardPage.nextInspectionsButton("hive-123")).toBeDisabled();
+    await expect(dashboardPage.inspectionDateButton("hive-other", "2026-06-30")).toBeVisible();
+    await expect(dashboardPage.inspectionDateButton("hive-other", "2026-06-25")).toHaveCount(0);
     await expect(dashboardPage.hiveCard("hive-empty").getByRole("table")).toHaveCount(0);
+    await expect(dashboardPage.previousInspectionsButton("hive-empty")).toHaveCount(0);
+
+    // when I return to the first page
+    await dashboardPage.showPreviousInspections("hive-123");
+
+    // then the newest five and initial boundary state return
+    await expect(dashboardPage.hiveCard("hive-123").getByRole("button", { name: /^2026-07-/ })).toHaveCount(5);
+    await expect(dashboardPage.inspectionDateButton("hive-123", "2026-07-25")).toHaveCount(0);
+    await expect(dashboardPage.previousInspectionsButton("hive-123")).toBeDisabled();
   });
 
   test("opens history read-only and restores focus to its date trigger", async ({ page }) => {

@@ -17,6 +17,10 @@ export const HiveRouteParamsSchema = z.object({
   hiveId: z.string().uuid("Hive ID must be a valid UUID"),
 });
 
+export const HiveInspectionPageQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+});
+
 const calendarDateSchema = z.string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Inspection date must use YYYY-MM-DD")
   .refine((value) => {

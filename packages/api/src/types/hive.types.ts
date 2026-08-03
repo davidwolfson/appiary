@@ -24,6 +24,19 @@ export interface HiveResult {
   name: string;
   status: boolean;
   inspections: HiveInspectionResult[];
+  inspectionPagination: InspectionPaginationResult;
+}
+
+export interface InspectionPaginationResult {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export interface ListHiveInspectionsResult {
+  inspections: HiveInspectionResult[];
+  pagination: InspectionPaginationResult;
 }
 
 export interface CreateHiveInspectionAction {
