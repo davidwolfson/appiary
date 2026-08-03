@@ -25,7 +25,7 @@ export function createAuthResponse(user: AuthenticatedUser, token = "token-123")
 export async function visitAsAuthenticatedUser(
   page: Page,
   user: AuthenticatedUser,
-  hives: HiveResponse[] = [],
+  hivesOrHandler: HiveResponse[] | ((route: Route) => Promise<void>) = [],
   token = "token-123",
 ): Promise<void> {
   await page.route("**/api/auth/login", async (route) => {
@@ -35,7 +35,7 @@ export async function visitAsAuthenticatedUser(
       body: JSON.stringify(createAuthResponse(user, token)),
     });
   });
-  await mockListHivesRequest(page, hives);
+  await mockListHivesRequest(page, hivesOrHandler);
   const loginPage = createLoginPage(page);
   await loginPage.goto();
   await loginPage.fillForm({ email: user.email, password: "secret123" });
