@@ -9,6 +9,7 @@ import {
   CreateHiveRequestSchema,
   CreateHiveInspectionRequestSchema,
   HiveRouteParamsSchema,
+  HiveInspectionPageQuerySchema,
   UpdateHiveRequestSchema,
 } from "../schemas/hive.schemas.js";
 import { HiveService } from "../services/hive.service.js";
@@ -61,6 +62,21 @@ hiveRouter.post("/:hiveId/inspections", asyncHandler<HiveRouteParams>(async (req
 
   res.status(201).json({
     inspection: mapToHiveInspectionResponse(result.inspection),
+  });
+}));
+
+hiveRouter.get("/:hiveId/inspections", asyncHandler<HiveRouteParams>(async (req, res) => {
+  const params = HiveRouteParamsSchema.parse(req.params);
+  const query = HiveInspectionPageQuerySchema.parse(req.query);
+  const result = await hiveService.listInspectionsForAuthenticatedUser(
+    req.authenticatedUserId!,
+    params.hiveId,
+    query.page,
+  );
+
+  res.status(200).json({
+    inspections: result.inspections.map(mapToHiveInspectionResponse),
+    pagination: result.pagination,
   });
 }));
 

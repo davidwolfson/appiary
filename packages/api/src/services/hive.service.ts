@@ -1,6 +1,6 @@
 import type { HiveModel } from "../models/hive.model.js";
 import type { HiveInspectionModel } from "../models/hive-inspection.model.js";
-import { HiveInspectionRepository } from "../repositories/hive-inspection.repository.js";
+import { HIVE_INSPECTION_PAGE_SIZE, HiveInspectionRepository, type HiveInspectionPage } from "../repositories/hive-inspection.repository.js";
 import { DuplicateHiveNameError, HiveRepository } from "../repositories/hive.repository.js";
 import { UserRepository } from "../repositories/user.repository.js";
 import type {
@@ -10,6 +10,7 @@ import type {
   CreateHiveResult,
   HiveResult,
   HiveInspectionResult,
+  ListHiveInspectionsResult,
   ListHivesResult,
   UpdateHiveAction,
   UpdateHiveResult,
@@ -26,12 +27,12 @@ export class HiveService {
   async listForAuthenticatedUser(authenticatedUserId: string): Promise<ListHivesResult> {
     const accountId = await this.getAuthenticatedAccountId(authenticatedUserId);
     const hives = await this.hiveRepository.findByAccountId(accountId);
-    const inspectionsByHiveId = await this.hiveInspectionRepository.findLatestForHiveIds(
+    const inspectionsByHiveId = await this.hiveInspectionRepository.findFirstPageForHiveIds(
       hives.map((hive) => hive.hiveId),
     );
 
     return {
-      hives: hives.map((hive) => this.mapHiveResult(hive, inspectionsByHiveId.get(hive.hiveId) ?? [])),
+      hives: hives.map((hive) => this.mapHiveResult(hive, inspectionsByHiveId.get(hive.hiveId) ?? this.emptyInspectionPage())),
     };
   }
 
@@ -54,7 +55,7 @@ export class HiveService {
     }
 
     return {
-      hive: this.mapHiveResult(hive, []),
+      hive: this.mapHiveResult(hive, this.emptyInspectionPage()),
     };
   }
 
@@ -81,10 +82,27 @@ export class HiveService {
       throw new AppError(404, "Hive not found");
     }
 
-    const inspectionsByHiveId = await this.hiveInspectionRepository.findLatestForHiveIds([hive.hiveId]);
+    const inspectionsByHiveId = await this.hiveInspectionRepository.findFirstPageForHiveIds([hive.hiveId]);
 
     return {
-      hive: this.mapHiveResult(hive, inspectionsByHiveId.get(hive.hiveId) ?? []),
+      hive: this.mapHiveResult(hive, inspectionsByHiveId.get(hive.hiveId) ?? this.emptyInspectionPage()),
+    };
+  }
+
+  async listInspectionsForAuthenticatedUser(
+    authenticatedUserId: string,
+    hiveId: string,
+    page: number,
+  ): Promise<ListHiveInspectionsResult> {
+    const accountId = await this.getAuthenticatedAccountId(authenticatedUserId);
+    const inspectionPage = await this.hiveInspectionRepository.findPageForAccount({ accountId, hiveId, page });
+    if (!inspectionPage) {
+      throw new AppError(404, "Hive not found");
+    }
+
+    return {
+      inspections: inspectionPage.inspections.map((inspection) => this.mapInspectionResult(inspection)),
+      pagination: this.mapPagination(inspectionPage, page),
     };
   }
 
@@ -122,12 +140,26 @@ export class HiveService {
     return user.accountId;
   }
 
-  private mapHiveResult(hive: HiveModel, inspections: HiveInspectionModel[]): HiveResult {
+  private mapHiveResult(hive: HiveModel, inspectionPage: HiveInspectionPage): HiveResult {
     return {
       hiveId: hive.hiveId,
       name: hive.name,
       status: hive.status,
-      inspections: inspections.map((inspection) => this.mapInspectionResult(inspection)),
+      inspections: inspectionPage.inspections.map((inspection) => this.mapInspectionResult(inspection)),
+      inspectionPagination: this.mapPagination(inspectionPage, 1),
+    };
+  }
+
+  private emptyInspectionPage(): HiveInspectionPage {
+    return { inspections: [], totalItems: 0 };
+  }
+
+  private mapPagination(page: HiveInspectionPage, pageNumber: number) {
+    return {
+      page: pageNumber,
+      pageSize: HIVE_INSPECTION_PAGE_SIZE,
+      totalItems: page.totalItems,
+      totalPages: Math.ceil(page.totalItems / HIVE_INSPECTION_PAGE_SIZE),
     };
   }
 

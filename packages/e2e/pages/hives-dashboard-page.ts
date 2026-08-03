@@ -37,6 +37,10 @@ export function createHivesDashboardPage(page: Page) {
   const closeInspectionButton = inspectionModal.getByRole("button", { name: "Close" });
   const inspectionDateButton = (hiveId: string, date: string) =>
     hiveCard(hiveId).getByRole("button", { name: date, exact: true });
+  const previousInspectionsButton = (hiveId: string) =>
+    hiveCard(hiveId).getByRole("button", { name: "Previous inspections" });
+  const nextInspectionsButton = (hiveId: string) =>
+    hiveCard(hiveId).getByRole("button", { name: "Next inspections" });
 
   return {
     hiveControls,
@@ -62,6 +66,8 @@ export function createHivesDashboardPage(page: Page) {
     cancelInspectionButton,
     closeInspectionButton,
     inspectionDateButton,
+    previousInspectionsButton,
+    nextInspectionsButton,
     hiveNameInput,
     statusSelect,
     hiveStatusFilter,
@@ -102,6 +108,12 @@ export function createHivesDashboardPage(page: Page) {
     async openInspection(hiveId: string, date: string): Promise<void> {
       await inspectionDateButton(hiveId, date).click();
       await expect(inspectionModal).toBeVisible();
+    },
+    async showPreviousInspections(hiveId: string): Promise<void> {
+      await previousInspectionsButton(hiveId).click();
+    },
+    async showNextInspections(hiveId: string): Promise<void> {
+      await nextInspectionsButton(hiveId).click();
     },
     async fillInspectionForm(payload: CreateHiveInspectionRequest): Promise<void> {
       await inspectionDateInput.fill(payload.inspectionDate);

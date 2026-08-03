@@ -16,7 +16,15 @@ interface HiveInspectionRow {
   additional_notes: string | null;
   created_at: Date;
   updated_at: Date;
+  total_items?: string;
 }
+
+export interface HiveInspectionPage {
+  inspections: HiveInspectionModel[];
+  totalItems: number;
+}
+
+export const HIVE_INSPECTION_PAGE_SIZE = 5;
 
 export interface CreateHiveInspectionInput {
   accountId: string;
@@ -50,36 +58,72 @@ export class HiveInspectionRepository {
     return result.rows[0] ? this.mapInspection(result.rows[0]) : null;
   }
 
-  async findLatestForHiveIds(hiveIds: string[]): Promise<Map<string, HiveInspectionModel[]>> {
-    const inspectionsByHiveId = new Map<string, HiveInspectionModel[]>(
-      hiveIds.map((hiveId) => [hiveId, []]),
+  async findFirstPageForHiveIds(hiveIds: string[]): Promise<Map<string, HiveInspectionPage>> {
+    const pagesByHiveId = new Map<string, HiveInspectionPage>(
+      hiveIds.map((hiveId) => [hiveId, { inspections: [], totalItems: 0 }]),
     );
 
     if (hiveIds.length === 0) {
-      return inspectionsByHiveId;
+      return pagesByHiveId;
     }
 
     const result = await database.query<HiveInspectionRow>(
       `SELECT inspection_id, hive_id, inspection_date::text, inspection_time::text,
-         queen_right, eggs, larva, capped_brood, brood_pattern, additional_notes, created_at, updated_at
+         queen_right, eggs, larva, capped_brood, brood_pattern, additional_notes, created_at, updated_at,
+         total_items::text
        FROM (
-         SELECT hi.*, ROW_NUMBER() OVER (
-           PARTITION BY hive_id
-           ORDER BY inspection_date DESC, inspection_time DESC, created_at DESC, inspection_id DESC
-         ) AS inspection_rank
+         SELECT hi.*, COUNT(*) OVER (PARTITION BY hive_id) AS total_items,
+           ROW_NUMBER() OVER (PARTITION BY hive_id ORDER BY inspection_date DESC, inspection_time DESC, created_at DESC, inspection_id DESC) AS inspection_rank
          FROM hive_inspections hi
          WHERE hive_id = ANY($1::uuid[])
-       ) ranked
-       WHERE inspection_rank <= 5
-       ORDER BY hive_id, inspection_date DESC, inspection_time DESC, created_at DESC, inspection_id DESC`,
-      [hiveIds],
+       ) ranked_inspections
+       WHERE inspection_rank <= $2
+       ORDER BY hive_id, inspection_rank`,
+      [hiveIds, HIVE_INSPECTION_PAGE_SIZE],
     );
 
     for (const row of result.rows) {
-      inspectionsByHiveId.get(row.hive_id)?.push(this.mapInspection(row));
+      const page = pagesByHiveId.get(row.hive_id);
+      if (page) {
+        page.inspections.push(this.mapInspection(row));
+        page.totalItems = Number(row.total_items ?? 0);
+      }
     }
 
-    return inspectionsByHiveId;
+    return pagesByHiveId;
+  }
+
+  async findPageForAccount(input: { accountId: string; hiveId: string; page: number }): Promise<HiveInspectionPage | null> {
+    const offset = (input.page - 1) * HIVE_INSPECTION_PAGE_SIZE;
+    const countResult = await database.query<{ total_items: string }>(
+      `SELECT COUNT(hi.inspection_id)::text AS total_items
+       FROM hives h
+       LEFT JOIN hive_inspections hi ON hi.hive_id = h.hive_id
+       WHERE h.account_id = $1 AND h.hive_id = $2
+       GROUP BY h.hive_id`,
+      [input.accountId, input.hiveId],
+    );
+    const countRow = countResult.rows[0];
+    if (!countRow) {
+      return null;
+    }
+
+    const result = await database.query<HiveInspectionRow>(
+      `SELECT hi.inspection_id, hi.hive_id, hi.inspection_date::text, hi.inspection_time::text,
+         hi.queen_right, hi.eggs, hi.larva, hi.capped_brood, hi.brood_pattern, hi.additional_notes,
+         hi.created_at, hi.updated_at
+       FROM hive_inspections hi
+       INNER JOIN hives h ON h.hive_id = hi.hive_id
+       WHERE h.account_id = $1 AND hi.hive_id = $2
+       ORDER BY hi.inspection_date DESC, hi.inspection_time DESC, hi.created_at DESC, hi.inspection_id DESC
+       LIMIT $3 OFFSET $4`,
+      [input.accountId, input.hiveId, HIVE_INSPECTION_PAGE_SIZE, offset],
+    );
+
+    return {
+      inspections: result.rows.map((row) => this.mapInspection(row)),
+      totalItems: Number(countRow.total_items),
+    };
   }
 
   private mapInspection(row: HiveInspectionRow): HiveInspectionModel {

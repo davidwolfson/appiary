@@ -29,6 +29,7 @@ export class HivesStore {
   private readonly updateErrorState = signal<string | null>(null);
   private readonly savingInspectionState = signal(false);
   private readonly inspectionErrorState = signal<string | null>(null);
+  private readonly loadingInspectionHiveIdState = signal<string | null>(null);
 
   readonly hives = this.hivesState.asReadonly();
   readonly isLoading = this.loadingState.asReadonly();
@@ -39,6 +40,7 @@ export class HivesStore {
   readonly updateError = this.updateErrorState.asReadonly();
   readonly isSavingInspection = this.savingInspectionState.asReadonly();
   readonly inspectionError = this.inspectionErrorState.asReadonly();
+  readonly loadingInspectionHiveId = this.loadingInspectionHiveIdState.asReadonly();
   readonly hasHives = computed(() => this.hivesState().length > 0);
 
   async loadHives(): Promise<void> {
@@ -100,7 +102,13 @@ export class HivesStore {
           ...hive,
           inspections: [inspection, ...(hive.inspections ?? [])]
             .sort((left, right) => `${right.inspectionDate}T${right.inspectionTime}`.localeCompare(`${left.inspectionDate}T${left.inspectionTime}`))
-            .slice(0, 5),
+            .slice(0, hive.inspectionPagination?.pageSize ?? Number.POSITIVE_INFINITY),
+          ...(hive.inspectionPagination ? { inspectionPagination: {
+            ...hive.inspectionPagination,
+            page: 1,
+            totalItems: hive.inspectionPagination.totalItems + 1,
+            totalPages: Math.ceil((hive.inspectionPagination.totalItems + 1) / hive.inspectionPagination.pageSize),
+          } } : {}),
         }
         : hive));
     } catch (error) {
@@ -108,6 +116,21 @@ export class HivesStore {
       throw error;
     } finally {
       this.savingInspectionState.set(false);
+    }
+  }
+
+  async loadInspectionPage(hiveId: string, page: number): Promise<void> {
+    this.loadingInspectionHiveIdState.set(hiveId);
+    this.inspectionErrorState.set(null);
+    try {
+      const result = await this.hivesService.listInspections(hiveId, page);
+      this.hivesState.update((hives) => hives.map((hive) => hive.hiveId === hiveId
+        ? { ...hive, inspections: result.inspections, inspectionPagination: result.pagination }
+        : hive));
+    } catch (error) {
+      this.inspectionErrorState.set(extractErrorMessage(error));
+    } finally {
+      this.loadingInspectionHiveIdState.set(null);
     }
   }
 

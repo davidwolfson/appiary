@@ -182,7 +182,7 @@ describe("HivesStore", () => {
     expect(store.updateError()).toBeNull();
   });
 
-  it("adds an inspection only to its hive and caps history at five", async () => {
+  it("adds an inspection only to its hive and preserves complete history", async () => {
     // given two hives exist and one already has five inspections
     const inspection = (id: string) => ({ inspectionId: id, hiveId: "hive-1", inspectionDate: "2026-07-31", inspectionTime: "12:00", queenRight: false, eggs: false, larva: false, cappedBrood: false, broodPattern: null, additionalNotes: null });
     hivesService.listHives.mockResolvedValue([{ hiveId: "hive-1", name: "North", status: true, inspections: [1, 2, 3, 4, 5].map((id) => inspection(String(id))) }, { hiveId: "hive-2", name: "South", status: true, inspections: [] }]);
@@ -193,8 +193,8 @@ describe("HivesStore", () => {
     // when a new inspection is saved
     await store.createInspection("hive-1", { inspectionDate: "2026-07-31", inspectionTime: "12:00", queenRight: false, eggs: false, larva: false, cappedBrood: false });
 
-    // then only the target hive changes and its newest five are retained
-    expect(store.hives()[0].inspections.map(({ inspectionId }) => inspectionId)).toEqual(["new", "1", "2", "3", "4"]);
+    // then only the target hive changes and all inspections are retained newest-first
+    expect(store.hives()[0].inspections.map(({ inspectionId }) => inspectionId)).toEqual(["new", "1", "2", "3", "4", "5"]);
     expect(store.hives()[1]).toBe(untouchedHive);
     expect(store.isSavingInspection()).toBe(false);
     expect(store.inspectionError()).toBeNull();

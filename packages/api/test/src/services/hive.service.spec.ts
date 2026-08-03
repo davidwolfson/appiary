@@ -15,7 +15,8 @@ describe("HiveService", () => {
   };
   const hiveInspectionRepository = {
     createForAccount: vi.fn(),
-    findLatestForHiveIds: vi.fn(),
+    findFirstPageForHiveIds: vi.fn(),
+    findPageForAccount: vi.fn(),
   };
 
   beforeEach(() => {
@@ -24,8 +25,9 @@ describe("HiveService", () => {
     hiveRepository.update.mockReset();
     userRepository.findById.mockReset();
     hiveInspectionRepository.createForAccount.mockReset();
-    hiveInspectionRepository.findLatestForHiveIds.mockReset();
-    hiveInspectionRepository.findLatestForHiveIds.mockResolvedValue(new Map());
+    hiveInspectionRepository.findFirstPageForHiveIds.mockReset();
+    hiveInspectionRepository.findPageForAccount.mockReset();
+    hiveInspectionRepository.findFirstPageForHiveIds.mockResolvedValue(new Map());
   });
 
   function createService() {
@@ -47,11 +49,11 @@ describe("HiveService", () => {
         updatedAt: new Date(),
       },
     ]);
-    hiveInspectionRepository.findLatestForHiveIds.mockResolvedValue(new Map([["hive-1", [{
+    hiveInspectionRepository.findFirstPageForHiveIds.mockResolvedValue(new Map([["hive-1", { inspections: [{
       inspectionId: "inspection-1", hiveId: "hive-1", inspectionDate: "2026-07-31",
       inspectionTime: "14:30", queenRight: true, eggs: false, larva: true, cappedBrood: false,
       broodPattern: "good", additionalNotes: null, createdAt: new Date(), updatedAt: new Date(),
-    }]]]));
+    }], totalItems: 1 }]]));
 
     // when the user's hives are requested
     const result = service.listForAuthenticatedUser("user-1");
@@ -63,6 +65,7 @@ describe("HiveService", () => {
           hiveId: "hive-1",
           name: "North Field",
           status: true,
+          inspectionPagination: { page: 1, pageSize: 5, totalItems: 1, totalPages: 1 },
           inspections: [{
             inspectionId: "inspection-1", hiveId: "hive-1", inspectionDate: "2026-07-31",
             inspectionTime: "14:30", queenRight: true, eggs: false, larva: true, cappedBrood: false,
@@ -72,7 +75,7 @@ describe("HiveService", () => {
       ],
     });
     expect(hiveRepository.findByAccountId).toHaveBeenCalledWith("account-1");
-    expect(hiveInspectionRepository.findLatestForHiveIds).toHaveBeenCalledWith(["hive-1"]);
+    expect(hiveInspectionRepository.findFirstPageForHiveIds).toHaveBeenCalledWith(["hive-1"]);
   });
 
   it("creates a hive for the authenticated user's account", async () => {
@@ -102,6 +105,7 @@ describe("HiveService", () => {
         hiveId: "hive-1",
         name: "North Field",
         status: true,
+        inspectionPagination: { page: 1, pageSize: 5, totalItems: 0, totalPages: 0 },
         inspections: [],
       },
     });
@@ -167,8 +171,8 @@ describe("HiveService", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    hiveInspectionRepository.findLatestForHiveIds.mockResolvedValue(new Map([
-      [existingHive.hiveId, [existingInspection]],
+    hiveInspectionRepository.findFirstPageForHiveIds.mockResolvedValue(new Map([
+      [existingHive.hiveId, { inspections: [existingInspection], totalItems: 1 }],
     ]));
 
     // when the user updates the hive
@@ -185,6 +189,7 @@ describe("HiveService", () => {
         hiveId: existingHive.hiveId,
         name: updatePayload.name,
         status: updatePayload.status,
+        inspectionPagination: { page: 1, pageSize: 5, totalItems: 1, totalPages: 1 },
         inspections: [{
           inspectionId: existingInspection.inspectionId,
           hiveId: existingInspection.hiveId,
@@ -205,7 +210,7 @@ describe("HiveService", () => {
       name: updatePayload.name,
       status: updatePayload.status,
     });
-    expect(hiveInspectionRepository.findLatestForHiveIds).toHaveBeenCalledWith([existingHive.hiveId]);
+    expect(hiveInspectionRepository.findFirstPageForHiveIds).toHaveBeenCalledWith([existingHive.hiveId]);
   });
 
   it("maps duplicate hive name update errors to conflict errors", async () => {
@@ -244,7 +249,7 @@ describe("HiveService", () => {
 
     // then the service returns not found
     await expect(result).rejects.toEqual(new AppError(404, "Hive not found"));
-    expect(hiveInspectionRepository.findLatestForHiveIds).not.toHaveBeenCalled();
+    expect(hiveInspectionRepository.findFirstPageForHiveIds).not.toHaveBeenCalled();
   });
 
   it("rejects hive listing when the authenticated user cannot be resolved", async () => {
@@ -281,6 +286,46 @@ describe("HiveService", () => {
     expect(hiveInspectionRepository.createForAccount).toHaveBeenCalledWith(expect.objectContaining({
       accountId: "account-1", hiveId: "hive-1",
     }));
+  });
+
+  it("returns a requested inspection page with pagination metadata", async () => {
+    // given the authenticated account owns a hive with a second inspection page
+    const service = createService();
+    userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
+    hiveInspectionRepository.findPageForAccount.mockResolvedValue({
+      inspections: [{
+        inspectionId: "inspection-6", hiveId: "hive-1", inspectionDate: "2026-07-25",
+        inspectionTime: "09:00", queenRight: false, eggs: false, larva: false,
+        cappedBrood: false, broodPattern: null, additionalNotes: null,
+        createdAt: new Date(), updatedAt: new Date(),
+      }],
+      totalItems: 6,
+    });
+
+    // when page two is requested
+    const result = await service.listInspectionsForAuthenticatedUser("user-1", "hive-1", 2);
+
+    // then the repository is account-scoped and page metadata is returned
+    expect(hiveInspectionRepository.findPageForAccount).toHaveBeenCalledWith({
+      accountId: "account-1", hiveId: "hive-1", page: 2,
+    });
+    expect(result).toMatchObject({
+      inspections: [{ inspectionId: "inspection-6" }],
+      pagination: { page: 2, pageSize: 5, totalItems: 6, totalPages: 2 },
+    });
+  });
+
+  it("does not disclose missing or foreign-owned hives when paging inspections", async () => {
+    // given the scoped repository cannot find the hive
+    const service = createService();
+    userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
+    hiveInspectionRepository.findPageForAccount.mockResolvedValue(null);
+
+    // when its inspection page is requested
+    const result = service.listInspectionsForAuthenticatedUser("user-1", "foreign-hive", 1);
+
+    // then the route-level domain response remains non-disclosing
+    await expect(result).rejects.toEqual(new AppError(404, "Hive not found"));
   });
 
   it("does not disclose missing or foreign-owned hives during inspection creation", async () => {

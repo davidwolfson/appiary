@@ -12,5 +12,6 @@ export function mapToHiveResponse(result: HiveResult): HiveResponse {
     name: result.name,
     status: result.status,
     inspections: result.inspections.map(mapToHiveInspectionResponse),
+    ...(result.inspectionPagination ? { inspectionPagination: { ...result.inspectionPagination } } : {}),
   };
 }

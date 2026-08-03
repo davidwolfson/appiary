@@ -7,6 +7,7 @@ import type {
   CreateHiveInspectionRequest,
   CreateHiveInspectionResponse,
   ListHivesResponse,
+  ListHiveInspectionsResponse,
   UpdateHiveRequest,
   UpdateHiveResponse,
 } from "@appiary/types";
@@ -20,6 +21,12 @@ export class HivesApi {
 
   listHives() {
     return this.http.get<ListHivesResponse>(this.hivesUrl);
+  }
+
+  listInspections(hiveId: string, page: number) {
+    return this.http.get<ListHiveInspectionsResponse>(`${this.hivesUrl}/${hiveId}/inspections`, {
+      params: { page },
+    });
   }
 
   createHive(payload: CreateHiveRequest) {

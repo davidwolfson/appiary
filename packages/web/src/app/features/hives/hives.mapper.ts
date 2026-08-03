@@ -13,5 +13,6 @@ export function mapToHiveViewModel(hive: HiveResponse): HiveViewModel {
     name: hive.name,
     status: hive.status,
     inspections: (hive.inspections ?? []).map(mapToHiveInspectionViewModel),
+    ...(hive.inspectionPagination ? { inspectionPagination: { ...hive.inspectionPagination } } : {}),
   };
 }

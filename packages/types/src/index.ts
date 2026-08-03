@@ -6,6 +6,8 @@ export type {
   CreateHiveResponse,
   HiveResponse,
   HiveInspectionResponse,
+  InspectionPagination,
+  ListHiveInspectionsResponse,
   ListHivesResponse,
   UpdateHiveRequest,
   UpdateHiveResponse,
