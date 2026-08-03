@@ -1,6 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 
-import type { AuthResponse, AuthenticatedUser, LoginRequest, RegisterRequest } from "@appiary/types";
+import type { AuthResponse, AuthenticatedUser, HiveResponse, LoginRequest, RegisterRequest } from "@appiary/types";
 
 import { mockListHivesRequest } from "./hives";
 import { createLoginPage } from "../pages/login-page";
@@ -22,7 +22,12 @@ export function createAuthResponse(user: AuthenticatedUser, token = "token-123")
   };
 }
 
-export async function visitAsAuthenticatedUser(page: Page, user: AuthenticatedUser, token = "token-123"): Promise<void> {
+export async function visitAsAuthenticatedUser(
+  page: Page,
+  user: AuthenticatedUser,
+  hives: HiveResponse[] = [],
+  token = "token-123",
+): Promise<void> {
   await page.route("**/api/auth/login", async (route) => {
     await route.fulfill({
       status: 200,
@@ -30,7 +35,7 @@ export async function visitAsAuthenticatedUser(page: Page, user: AuthenticatedUs
       body: JSON.stringify(createAuthResponse(user, token)),
     });
   });
-  await mockListHivesRequest(page);
+  await mockListHivesRequest(page, hives);
   const loginPage = createLoginPage(page);
   await loginPage.goto();
   await loginPage.fillForm({ email: user.email, password: "secret123" });

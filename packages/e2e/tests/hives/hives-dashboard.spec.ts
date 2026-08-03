@@ -61,11 +61,11 @@ test.describe("hives dashboard", () => {
     const dashboardPage = createHivesDashboardPage(page);
 
     // given I am authenticated and the API returns hives
-    await visitAsAuthenticatedUser(page, user);
-    await mockListHivesRequest(page, [
+    const hives = [
       createHive({ hiveId: "hive-1", name: "North Field", status: true }),
       createHive({ hiveId: "hive-2", name: "South Field", status: false }),
-    ]);
+    ];
+    await visitAsAuthenticatedUser(page, user, hives);
 
     // when I navigate to the dashboard
     await dashboardPage.goto();
@@ -460,11 +460,11 @@ test.describe("hives dashboard", () => {
     });
 
     // given I am authenticated with a hive and have opened Add Inspection
-    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
-    await mockListHivesRequest(page, [
+    const hives = [
       createHive({ inspections: existingInspections }),
       createHive({ hiveId: "hive-456", name: "South Field" }),
-    ]);
+    ];
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser(), hives);
     await dashboardPage.goto();
     await dashboardPage.openAddInspectionModal("hive-123");
 
@@ -490,8 +490,7 @@ test.describe("hives dashboard", () => {
     });
 
     // given I have opened Add Inspection for a hive
-    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
-    await mockListHivesRequest(page, [createHive()]);
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [createHive()]);
     await dashboardPage.goto();
     await dashboardPage.openAddInspectionModal("hive-123");
 
@@ -518,8 +517,7 @@ test.describe("hives dashboard", () => {
     });
 
     // given a valid inspection is ready to save
-    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
-    await mockListHivesRequest(page, [createHive()]);
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [createHive()]);
     await dashboardPage.goto();
     await dashboardPage.openAddInspectionModal("hive-123");
     await dashboardPage.fillInspectionForm(createInspectionInput());
@@ -606,8 +604,7 @@ test.describe("hives dashboard", () => {
     const inspection = createInspection();
 
     // given an inspection date is visible in hive history
-    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
-    await mockListHivesRequest(page, [createHive({ inspections: [inspection] })]);
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [createHive({ inspections: [inspection] })]);
     await dashboardPage.goto();
     const dateTrigger = dashboardPage.hiveCard("hive-123").getByRole("button", { name: inspection.inspectionDate });
 
