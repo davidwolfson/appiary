@@ -22,9 +22,8 @@ test.describe("register", () => {
     await registerPage.expectVisible();
   });
 
-  test("redirects authenticated users away from the register page", async ({ page }) => {
+  test("ends an authenticated session on direct navigation to register", async ({ page }) => {
     const user = createAuthenticatedUser();
-    const homePage = createHomePage(page);
     const registerPage = createRegisterPage(page);
 
     // given I am already authenticated
@@ -33,9 +32,9 @@ test.describe("register", () => {
     // when I navigate to /register
     await registerPage.goto();
 
-    // then I should be redirected to / and see the signed-in home screen
-    await expect(page).toHaveURL(/\/$/);
-    await homePage.expectSignedIn(user);
+    // then the new page lifetime should show the register screen
+    await expect(page).toHaveURL(new RegExp(`${routes.register}$`));
+    await registerPage.expectVisible();
   });
 
   test("does not submit an empty register form", async ({ page }) => {

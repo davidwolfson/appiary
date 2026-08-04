@@ -9,6 +9,8 @@ import type {
   UpdateHiveRequest,
 } from "@appiary/types";
 
+const listHivesHandlers = new WeakMap<Page, (route: Route) => Promise<void>>();
+
 export function createHive(overrides: Partial<HiveResponse> = {}): HiveResponse {
   return {
     hiveId: "hive-123",
@@ -47,7 +49,12 @@ export async function mockListHivesRequest(
   page: Page,
   hivesOrHandler: HiveResponse[] | ((route: Route) => Promise<void>) = [],
 ): Promise<void> {
-  await page.route("**/api/hives", async (route) => {
+  const previousHandler = listHivesHandlers.get(page);
+  if (previousHandler) {
+    await page.unroute("**/api/hives", previousHandler);
+  }
+
+  const handler = async (route: Route): Promise<void> => {
     if (route.request().method() !== "GET") {
       await route.fallback();
       return;
@@ -65,7 +72,10 @@ export async function mockListHivesRequest(
       contentType: "application/json",
       body: JSON.stringify(response),
     });
-  });
+  };
+
+  listHivesHandlers.set(page, handler);
+  await page.route("**/api/hives", handler);
 }
 
 export async function mockCreateHiveRequest(

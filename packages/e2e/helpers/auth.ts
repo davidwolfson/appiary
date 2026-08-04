@@ -1,10 +1,9 @@
 import type { Page, Route } from "@playwright/test";
 
-import type { AuthResponse, AuthenticatedUser, LoginRequest, RegisterRequest } from "@appiary/types";
+import type { AuthResponse, AuthenticatedUser, HiveResponse, LoginRequest, RegisterRequest } from "@appiary/types";
 
 import { mockListHivesRequest } from "./hives";
-
-const authTokenStorageKey = "appiary.auth.token";
+import { createLoginPage } from "../pages/login-page";
 
 export function createAuthenticatedUser(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser {
   return {
@@ -23,19 +22,25 @@ export function createAuthResponse(user: AuthenticatedUser, token = "token-123")
   };
 }
 
-export async function visitAsAuthenticatedUser(page: Page, user: AuthenticatedUser, token = "token-123"): Promise<void> {
-  await page.addInitScript(([storageKey, storedToken]) => {
-    globalThis.localStorage.setItem(storageKey, storedToken);
-  }, [authTokenStorageKey, token]);
-
-  await page.route("**/api/auth/me", async (route) => {
+export async function visitAsAuthenticatedUser(
+  page: Page,
+  user: AuthenticatedUser,
+  hivesOrHandler: HiveResponse[] | ((route: Route) => Promise<void>) = [],
+  token = "token-123",
+): Promise<void> {
+  await page.route("**/api/auth/login", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(user),
+      body: JSON.stringify(createAuthResponse(user, token)),
     });
   });
-  await mockListHivesRequest(page);
+  await mockListHivesRequest(page, hivesOrHandler);
+  const loginPage = createLoginPage(page);
+  await loginPage.goto();
+  await loginPage.fillForm({ email: user.email, password: "secret123" });
+  await loginPage.submit();
+  await page.waitForURL(/\/$/);
 }
 
 export async function mockLoginRequest(

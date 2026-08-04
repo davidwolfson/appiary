@@ -4,19 +4,24 @@ import { firstValueFrom } from "rxjs";
 import type { LoginRequest, RegisterRequest } from "@appiary/types";
 
 import { AuthApi } from "./auth.api";
-import { mapToAuthenticatedSession, mapToAuthSession, type AuthSession } from "./auth.mapper";
+import { mapToAuthSession, type AuthSession } from "./auth.mapper";
 
-const TOKEN_STORAGE_KEY = "appiary.auth.token";
+const LEGACY_TOKEN_STORAGE_KEY = "appiary.auth.token";
 
 @Injectable({ providedIn: "root" })
 export class AuthService {
   private readonly authApi = inject(AuthApi);
+  private token: string | null = null;
+
+  constructor() {
+    globalThis.localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+  }
 
   async register(payload: RegisterRequest): Promise<AuthSession> {
     const response = await firstValueFrom(this.authApi.register(payload));
     const session = mapToAuthSession(response);
 
-    this.persistToken(session.token);
+    this.token = session.token;
 
     return session;
   }
@@ -25,7 +30,7 @@ export class AuthService {
     const response = await firstValueFrom(this.authApi.login(payload));
     const session = mapToAuthSession(response);
 
-    this.persistToken(session.token);
+    this.token = session.token;
 
     return session;
   }
@@ -38,32 +43,12 @@ export class AuthService {
     }
   }
 
-  async restoreSession(): Promise<AuthSession | null> {
-    const token = this.getToken();
-
-    if (!token) {
-      return null;
-    }
-
-    try {
-      const user = await firstValueFrom(this.authApi.getMe());
-      return mapToAuthenticatedSession(user, token);
-    } catch {
-      this.clearSession();
-      return null;
-    }
-  }
-
   getToken(): string | null {
-    return globalThis.localStorage.getItem(TOKEN_STORAGE_KEY);
+    return this.token;
   }
 
   clearSession(): void {
-    globalThis.localStorage.removeItem(TOKEN_STORAGE_KEY);
-  }
-
-  private persistToken(token: string): void {
-    globalThis.localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    this.token = null;
   }
 }
 

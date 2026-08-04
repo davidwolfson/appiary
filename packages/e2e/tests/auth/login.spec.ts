@@ -21,9 +21,8 @@ test.describe("login", () => {
     await loginPage.expectVisible();
   });
 
-  test("redirects authenticated users away from the login page", async ({ page }) => {
+  test("ends an authenticated session on direct navigation to login", async ({ page }) => {
     const user = createAuthenticatedUser();
-    const homePage = createHomePage(page);
     const loginPage = createLoginPage(page);
 
     // given I am already authenticated
@@ -32,9 +31,50 @@ test.describe("login", () => {
     // when I navigate to /login
     await loginPage.goto();
 
-    // then I should be redirected to / and see the signed-in home screen
+    // then the new page lifetime should show the login screen
+    await expect(page).toHaveURL(new RegExp(`${routes.login}$`));
+    await loginPage.expectVisible();
+  });
+
+  test("ends the browser session after a page refresh", async ({ page }) => {
+    const loginPage = createLoginPage(page);
+    // given I signed in during this page lifetime
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    // when I refresh the protected page
+    await page.reload();
+    // then I return to the login screen without restoring the session
+    await expect(page).toHaveURL(new RegExp(`${routes.login}$`));
+    await loginPage.expectVisible();
+  });
+
+  test("ends the session after five minutes without activity", async ({ page }) => {
+    const loginPage = createLoginPage(page);
+    await page.clock.install();
+    // given I signed in and remain inactive
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    // when the inactivity deadline is crossed
+    await page.clock.fastForward(299_000);
     await expect(page).toHaveURL(/\/$/);
-    await homePage.expectSignedIn(user);
+    await page.clock.fastForward(1_000);
+    // then I am redirected to login
+    await expect(page).toHaveURL(new RegExp(`${routes.login}$`));
+    await loginPage.expectVisible();
+  });
+
+  test("resets the inactivity deadline after user input", async ({ page }) => {
+    const loginPage = createLoginPage(page);
+    await page.clock.install();
+    // given I signed in and two minutes elapse
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await page.clock.fastForward(120_000);
+    // when I provide keyboard activity and almost five more minutes pass
+    await page.keyboard.press("Tab");
+    await page.clock.fastForward(299_000);
+    // then the session lasts until five minutes after that activity
+    await expect(page).toHaveURL(/\/$/);
+    await page.clock.fastForward(1_000);
+    await expect(page).toHaveURL(new RegExp(`${routes.login}$`));
+    await loginPage.expectVisible();
   });
 
   test("does not submit an empty form", async ({ page }) => {
