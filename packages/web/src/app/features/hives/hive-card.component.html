@@ -23,11 +23,21 @@
 
     @if (inspections.length > 0) {
       <table class="table table-sm mb-0">
-        <caption class="visually-hidden">Inspections for {{ hive.name }}</caption>
-        <thead><tr><th scope="col">Inspection Date</th></tr></thead>
+        <caption class="caption-top fw-semibold text-body pt-0">Inspections</caption>
+        <thead><tr><th scope="col">Date</th><th scope="col">Summary</th></tr></thead>
         <tbody>
           @for (inspection of inspections; track inspection.inspectionId) {
-            <tr><td><button class="btn btn-link p-0" type="button" (click)="openInspection(inspection)">{{ inspection.inspectionDate }}</button></td></tr>
+            <tr
+              #inspectionRow
+              tabindex="0"
+              [attr.aria-label]="'View inspection from ' + formatInspectionDate(inspection.inspectionDate)"
+              (click)="openInspection(inspection, inspectionRow)"
+              (keydown.enter)="openInspection(inspection, inspectionRow)"
+              (keydown.space)="$event.preventDefault(); openInspection(inspection, inspectionRow)"
+            >
+              <td>{{ formatInspectionDate(inspection.inspectionDate) }}</td>
+              <td [attr.title]="inspectionDescription(inspection)">{{ inspectionSummary(inspection) }}</td>
+            </tr>
           }
         </tbody>
       </table>

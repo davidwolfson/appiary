@@ -69,7 +69,44 @@ export class HiveCardComponent {
     this.addInspection.emit(this.hive);
   }
 
-  protected openInspection(inspection: HiveInspectionViewModel): void {
+  protected formatInspectionDate(value: string): string {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return value;
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const daysInMonth = [31, this.isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]) return value;
+
+    return `${month}/${day}/${year}`;
+  }
+
+  protected inspectionSummary(inspection: HiveInspectionViewModel): string {
+    const broodPattern = inspection.broodPattern === "good"
+      ? "3"
+      : inspection.broodPattern === "fair"
+        ? "2"
+        : inspection.broodPattern === "poor"
+          ? "1"
+          : "";
+
+    return [
+      inspection.queenRight ? "QR" : "",
+      inspection.eggs ? "E" : "",
+      inspection.larva ? "L" : "",
+      inspection.cappedBrood ? "CB" : "",
+      broodPattern,
+    ].join("");
+  }
+
+  protected inspectionDescription(inspection: HiveInspectionViewModel): string | null {
+    const description = inspection.additionalNotes?.trim();
+    return description ? description : null;
+  }
+
+  protected openInspection(inspection: HiveInspectionViewModel, row: HTMLTableRowElement): void {
+    row.focus();
     this.viewInspection.emit(inspection);
   }
 
@@ -96,5 +133,9 @@ export class HiveCardComponent {
       totalItems: this.hive.inspections?.length ?? 0,
       totalPages: Math.ceil((this.hive.inspections?.length ?? 0) / 5),
     };
+  }
+
+  private isLeapYear(year: number): boolean {
+    return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
   }
 }
