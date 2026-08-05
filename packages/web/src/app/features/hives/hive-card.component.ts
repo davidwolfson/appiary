@@ -83,26 +83,17 @@ export class HiveCardComponent {
   }
 
   protected inspectionSummary(inspection: HiveInspectionViewModel): string {
-    const broodPattern = inspection.broodPattern === "good"
-      ? "3"
-      : inspection.broodPattern === "fair"
-        ? "2"
-        : inspection.broodPattern === "poor"
-          ? "1"
-          : "";
-
-    return [
-      inspection.queenRight ? "QR" : "",
-      inspection.eggs ? "E" : "",
-      inspection.larva ? "L" : "",
-      inspection.cappedBrood ? "CB" : "",
-      broodPattern,
-    ].join("");
+    return this.inspectionResults(inspection).map(({ compact }) => compact).join("");
   }
 
-  protected inspectionDescription(inspection: HiveInspectionViewModel): string | null {
-    const description = inspection.additionalNotes?.trim();
-    return description ? description : null;
+  protected inspectionResultDescription(inspection: HiveInspectionViewModel): string | null {
+    const description = this.inspectionResults(inspection).map(({ verbose }) => verbose).join(", ");
+    return description || null;
+  }
+
+  protected inspectionNotes(inspection: HiveInspectionViewModel): string | null {
+    const notes = inspection.additionalNotes?.trim();
+    return notes || null;
   }
 
   protected openInspection(inspection: HiveInspectionViewModel, row: HTMLTableRowElement): void {
@@ -133,6 +124,24 @@ export class HiveCardComponent {
       totalItems: this.hive.inspections?.length ?? 0,
       totalPages: Math.ceil((this.hive.inspections?.length ?? 0) / 5),
     };
+  }
+
+  private inspectionResults(inspection: HiveInspectionViewModel): Array<{ compact: string; verbose: string }> {
+    const results = [
+      inspection.queenRight ? { compact: "QR", verbose: "queen-right" } : null,
+      inspection.eggs ? { compact: "E", verbose: "eggs" } : null,
+      inspection.larva ? { compact: "L", verbose: "larvae" } : null,
+      inspection.cappedBrood ? { compact: "CB", verbose: "capped brood" } : null,
+      inspection.broodPattern === "good"
+        ? { compact: "3", verbose: "good pattern" }
+        : inspection.broodPattern === "fair"
+          ? { compact: "2", verbose: "fair pattern" }
+          : inspection.broodPattern === "poor"
+            ? { compact: "1", verbose: "poor pattern" }
+            : null,
+    ];
+
+    return results.filter((result): result is { compact: string; verbose: string } => result !== null);
   }
 
   private isLeapYear(year: number): boolean {

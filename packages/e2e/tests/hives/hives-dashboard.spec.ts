@@ -602,11 +602,12 @@ test.describe("hives dashboard", () => {
     // then the revised history and every read-only value are shown and create actions are absent
     const inspectionTable = dashboardPage.hiveCard("hive-123").getByRole("table", { name: "Inspections" });
     await expect(inspectionTable).toBeVisible();
-    await expect(inspectionTable.getByRole("columnheader")).toHaveText(["Date", "Summary"]);
+    await expect(inspectionTable.getByRole("columnheader")).toHaveText(["Date", "Summary", "Notes"]);
     await expect(inspectionRow.getByRole("cell").first()).toHaveText("7/30/2026");
     await expect(inspectionRow.getByRole("link")).toHaveCount(0);
     await expect(inspectionRow.getByRole("button")).toHaveCount(0);
-    await expect(inspectionRow.getByRole("cell", { name: "QRELCB3" })).toHaveAttribute("title", "Healthy colony");
+    await expect(inspectionRow.getByRole("cell", { name: "QRELCB3" })).toHaveAttribute("title", "queen-right, eggs, larvae, capped brood, good pattern");
+    await expect(inspectionRow.getByRole("img", { name: "Additional notes: Healthy colony" })).toHaveAttribute("title", "Healthy colony");
     await expect(dashboardPage.inspectionModal.getByText("North Field", { exact: true })).toBeVisible();
     await expect(dashboardPage.inspectionDateInput).toBeDisabled();
     await expect(dashboardPage.inspectionDateInput).toHaveValue(inspection.inspectionDate);

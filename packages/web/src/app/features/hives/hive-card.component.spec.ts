@@ -158,13 +158,13 @@ describe("HiveCardComponent", () => {
     const headers = Array.from(table.querySelectorAll("th"), (header) => header.textContent?.trim());
     const dateCell = table.querySelector("tbody tr:first-child td:first-child") as HTMLTableCellElement;
     expect(table.caption?.textContent?.trim()).toBe("Inspections");
-    expect(headers).toEqual(["Date", "Summary"]);
+    expect(headers).toEqual(["Date", "Summary", "Notes"]);
     expect(dateCell.textContent?.trim()).toBe("7/30/2026");
     expect(dateCell.querySelector("button, a")).toBeNull();
     expect(table.querySelector("tbody tr:nth-child(2) td:first-child")?.textContent?.trim()).toBe("not-a-date");
   });
 
-  it("renders ordered summaries and every brood-pattern mapping", () => {
+  it("renders ordered summaries and result tooltips for every brood-pattern mapping", () => {
     // given inspections contain full, partial, omitted, and mapped findings
     const inspections = [
       { ...createInspections(1)[0], inspectionId: "full", broodPattern: "good" as const },
@@ -178,12 +178,20 @@ describe("HiveCardComponent", () => {
     // when the summary cells render
     fixture.detectChanges();
 
-    // then tokens are concatenated in QR, E, L, CB, brood order without placeholders
-    const summaries = Array.from(fixture.nativeElement.querySelectorAll("tbody td:nth-child(2)"), (cell: Element) => cell.textContent?.trim());
+    // then compact tokens and verbose labels use matching order without placeholders
+    const summaryCells = Array.from(fixture.nativeElement.querySelectorAll("tbody td:nth-child(2)")) as HTMLTableCellElement[];
+    const summaries = summaryCells.map((cell) => cell.textContent?.trim());
     expect(summaries).toEqual(["QRELCB3", "ECB2", "1", "", ""]);
+    expect(summaryCells.map((cell) => cell.getAttribute("title"))).toEqual([
+      "queen-right, eggs, larvae, capped brood, good pattern",
+      "eggs, capped brood, fair pattern",
+      "poor pattern",
+      null,
+      null,
+    ]);
   });
 
-  it("shows trimmed descriptions only for meaningful notes", () => {
+  it("shows trimmed note icons only for meaningful notes", () => {
     // given inspections have populated, null, empty, and whitespace notes
     const inspections = ["  Healthy colony  ", null, "", "   "].map((additionalNotes, index) => ({
       ...createInspections(1)[0],
@@ -192,20 +200,23 @@ describe("HiveCardComponent", () => {
     }));
     fixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections });
 
-    // when the summary cells render
+    // when the notes cells render
     fixture.detectChanges();
 
-    // then only the populated note produces a trimmed native tooltip
+    // then only the populated note produces an accessible icon and trimmed tooltip
     const summaryCells = fixture.nativeElement.querySelectorAll("tbody td:nth-child(2)") as NodeListOf<HTMLTableCellElement>;
-    expect(summaryCells[0].getAttribute("title")).toBe("Healthy colony");
-    expect(summaryCells[1].hasAttribute("title")).toBe(false);
-    expect(summaryCells[2].hasAttribute("title")).toBe(false);
-    expect(summaryCells[3].hasAttribute("title")).toBe(false);
+    const notesCells = fixture.nativeElement.querySelectorAll("tbody td:nth-child(3)") as NodeListOf<HTMLTableCellElement>;
+    const noteIcon = notesCells[0].querySelector("[role='img']") as HTMLElement;
+    expect(summaryCells[0].getAttribute("title")).toBe("queen-right, eggs, larvae, capped brood");
+    expect(noteIcon.getAttribute("title")).toBe("Healthy colony");
+    expect(noteIcon.getAttribute("aria-label")).toBe("Additional notes: Healthy colony");
+    expect(noteIcon.querySelector("button, a")).toBeNull();
+    expect(Array.from(notesCells, (cell) => cell.querySelectorAll("[role='img'], [title]").length)).toEqual([1, 0, 0, 0]);
   });
 
-  it("opens and focuses an inspection from either row cell", () => {
+  it("opens and focuses an inspection from every row cell and the notes icon", () => {
     // given a row is listening for inspection activation
-    const inspection = createInspections(1)[0];
+    const inspection = { ...createInspections(1)[0], additionalNotes: "Healthy colony" };
     const emitted: unknown[] = [];
     const focusedAtEmission: Element[] = [];
     fixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections: [inspection] });
@@ -217,13 +228,15 @@ describe("HiveCardComponent", () => {
     const row = fixture.nativeElement.querySelector("tbody tr") as HTMLTableRowElement;
     const cells = row.querySelectorAll("td");
 
-    // when each cell is clicked
+    // when each cell and the nested notes icon are clicked
     (cells[0] as HTMLElement).click();
     (cells[1] as HTMLElement).click();
+    (cells[2] as HTMLElement).click();
+    (cells[2].querySelector("[role='img']") as HTMLElement).click();
 
     // then each activation emits once with the row focused first
-    expect(emitted).toEqual([inspection, inspection]);
-    expect(focusedAtEmission).toEqual([row, row]);
+    expect(emitted).toEqual([inspection, inspection, inspection, inspection]);
+    expect(focusedAtEmission).toEqual([row, row, row, row]);
   });
 
   it("opens inspections with Enter and Space without scrolling", () => {
