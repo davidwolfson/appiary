@@ -29,7 +29,7 @@ describe("HiveCardComponent", () => {
     fixture.componentRef.setInput("cardIndex", 0);
   });
 
-  it("renders the hive name and active status", () => {
+  it("renders an active icon beside the Hive title", () => {
     // given an active hive is supplied to the card
     fixture.componentRef.setInput("hive", {
       hiveId: "hive-1",
@@ -40,12 +40,18 @@ describe("HiveCardComponent", () => {
     // when the card view is rendered
     fixture.detectChanges();
 
-    // then the hive name and active status are visible
+    // then the hive name and green checkmark icon with an Active tooltip are visible
+    const title = fixture.nativeElement.querySelector(".brand-mark") as HTMLElement;
+    const statusIcon = fixture.nativeElement.querySelector("[role='img'][aria-label='Active']") as HTMLElement;
     expect(fixture.nativeElement.textContent).toContain("North Field");
-    expect(fixture.nativeElement.textContent).toContain("Active");
+    expect(statusIcon.previousElementSibling).toBe(title);
+    expect(statusIcon.textContent?.trim()).toBe("✓");
+    expect(statusIcon.classList).toContain("bg-success");
+    expect(statusIcon.title).toBe("Active");
+    expect(fixture.nativeElement.querySelector(".badge")).toBeNull();
   });
 
-  it("renders inactive status", () => {
+  it("renders an inactive icon beside the Hive title", () => {
     // given an inactive hive is supplied to the card
     fixture.componentRef.setInput("hive", {
       hiveId: "hive-1",
@@ -56,8 +62,14 @@ describe("HiveCardComponent", () => {
     // when the card view is rendered
     fixture.detectChanges();
 
-    // then the inactive status is visible
-    expect(fixture.nativeElement.textContent).toContain("Inactive");
+    // then a gray minus icon with an Inactive tooltip is beside the title
+    const title = fixture.nativeElement.querySelector(".brand-mark") as HTMLElement;
+    const statusIcon = fixture.nativeElement.querySelector("[role='img'][aria-label='Inactive']") as HTMLElement;
+    expect(statusIcon.previousElementSibling).toBe(title);
+    expect(statusIcon.textContent?.trim()).toBe("−");
+    expect(statusIcon.classList).toContain("text-secondary");
+    expect(statusIcon.title).toBe("Inactive");
+    expect(fixture.nativeElement.querySelector(".badge")).toBeNull();
   });
 
   it("renders an edit button with tooltip text", () => {

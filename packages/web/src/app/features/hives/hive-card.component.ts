@@ -57,10 +57,6 @@ export class HiveCardComponent {
     return this.loadingInspections || this.pagination.page >= this.pagination.totalPages;
   }
 
-  protected get statusLabel(): string {
-    return this.hive.status ? "Active" : "Inactive";
-  }
-
   protected editHive(): void {
     this.edit.emit(this.hive);
   }
