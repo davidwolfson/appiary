@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { resolve } from "node:path";
 
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import type {
@@ -10,11 +9,9 @@ import type {
   CreateHiveResponse,
   RegisterRequest,
 } from "@appiary/types";
-import { config } from "dotenv";
 import { Pool } from "pg";
 
-const TEST_DATABASE_NAME = "appiary_test";
-const rootEnvPath = resolve(process.cwd(), "../../.env");
+import { assertSafeRealApiDatabase } from "./real-api-environment";
 
 export interface RealApiIdentity {
   registration: RegisterRequest;
@@ -98,7 +95,6 @@ export class RealApiCleanup {
   private getPool(): Pool {
     if (this.pool) return this.pool;
 
-    config({ path: rootEnvPath, override: false });
     assertSafeRealApiDatabase(process.env.DB_NAME);
     this.pool = new Pool({
       host: process.env.DB_HOST ?? "localhost",
@@ -108,15 +104,6 @@ export class RealApiCleanup {
       password: process.env.DB_PASSWORD ?? "postgres",
     });
     return this.pool;
-  }
-}
-
-export function assertSafeRealApiDatabase(databaseName: string | undefined): void {
-  if (databaseName !== TEST_DATABASE_NAME) {
-    throw new Error(
-      `Refusing real API E2E cleanup for database "${databaseName ?? "<missing>"}". `
-      + `DB_NAME must be exactly "${TEST_DATABASE_NAME}".`,
-    );
   }
 }
 

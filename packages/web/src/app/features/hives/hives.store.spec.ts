@@ -372,4 +372,70 @@ describe("HivesStore", () => {
     expect(store.isLoadingInspectionPage("hive-1")).toBe(false);
     expect(store.inspectionPaginationFailure("hive-1")).toBeNull();
   });
+
+  it("ignores an inspection page that succeeds after hives reload", async () => {
+    // given a page request remains pending while refreshed hive data loads
+    const originalHive = { hiveId: "hive-1", name: "North", status: true, inspections: [], inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 } };
+    const refreshedHive = { ...originalHive, name: "North Refreshed" };
+    const staleInspection = { inspectionId: "inspection-6", hiveId: "hive-1", inspectionDate: "2026-07-25", inspectionTime: "12:00", queenRight: true, eggs: true, larva: true, cappedBrood: true, broodPattern: null, additionalNotes: null };
+    hivesService.listHives.mockResolvedValueOnce([originalHive]).mockResolvedValueOnce([refreshedHive]);
+    await store.loadHives();
+    let resolveStalePage!: (value: unknown) => void;
+    hivesService.listInspections.mockReturnValue(new Promise((resolve) => { resolveStalePage = resolve; }));
+    const staleRequest = store.loadInspectionPage("hive-1", 2);
+    await store.loadHives();
+
+    // when the pre-reload page request succeeds
+    resolveStalePage({ inspections: [staleInspection], pagination: { page: 2, pageSize: 5, totalItems: 6, totalPages: 2 } });
+    await staleRequest;
+
+    // then refreshed hive data remains unchanged
+    expect(store.hives()).toEqual([refreshedHive]);
+    expect(store.inspectionPaginationFailure("hive-1")).toBeNull();
+  });
+
+  it("ignores an inspection page that fails after hives reload", async () => {
+    // given a page request remains pending while the same hive reloads
+    const hive = { hiveId: "hive-1", name: "North", status: true, inspections: [] };
+    hivesService.listHives.mockResolvedValue([hive]);
+    await store.loadHives();
+    let rejectStalePage!: (reason: unknown) => void;
+    hivesService.listInspections.mockReturnValue(new Promise((_, reject) => { rejectStalePage = reject; }));
+    const staleRequest = store.loadInspectionPage("hive-1", 2);
+    await store.loadHives();
+
+    // when the pre-reload page request fails
+    rejectStalePage({ error: { message: "Stale failure" } });
+    await staleRequest;
+
+    // then no stale failure is installed in refreshed state
+    expect(store.hives()).toEqual([hive]);
+    expect(store.inspectionPaginationFailure("hive-1")).toBeNull();
+  });
+
+  it("keeps a refreshed inspection request loading when the stale request settles", async () => {
+    // given a stale request and a post-reload request are pending for the same hive
+    const hive = { hiveId: "hive-1", name: "North", status: true, inspections: [] };
+    hivesService.listHives.mockResolvedValue([hive]);
+    await store.loadHives();
+    let resolveStalePage!: (value: unknown) => void;
+    let resolveFreshPage!: (value: unknown) => void;
+    hivesService.listInspections
+      .mockReturnValueOnce(new Promise((resolve) => { resolveStalePage = resolve; }))
+      .mockReturnValueOnce(new Promise((resolve) => { resolveFreshPage = resolve; }));
+    const staleRequest = store.loadInspectionPage("hive-1", 2);
+    await store.loadHives();
+    const freshRequest = store.loadInspectionPage("hive-1", 2);
+
+    // when the stale request settles before the refreshed request
+    resolveStalePage({ inspections: [], pagination: { page: 2, pageSize: 5, totalItems: 0, totalPages: 0 } });
+    await staleRequest;
+    const freshRequestStillLoading = store.isLoadingInspectionPage("hive-1");
+    resolveFreshPage({ inspections: [], pagination: { page: 2, pageSize: 5, totalItems: 0, totalPages: 0 } });
+    await freshRequest;
+
+    // then the refreshed request retains ownership of the loading state
+    expect(freshRequestStillLoading).toBe(true);
+    expect(store.isLoadingInspectionPage("hive-1")).toBe(false);
+  });
 });

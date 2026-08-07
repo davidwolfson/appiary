@@ -40,6 +40,7 @@ export class HivesStore {
   private readonly savingInspectionState = signal(false);
   private readonly inspectionErrorState = signal<string | null>(null);
   private readonly inspectionPaginationState = signal<Record<string, InspectionPaginationRequestState>>({});
+  private inspectionRequestGeneration = 0;
 
   readonly hives = this.hivesState.asReadonly();
   readonly isLoading = this.loadingState.asReadonly();
@@ -61,6 +62,7 @@ export class HivesStore {
   }
 
   async loadHives(): Promise<void> {
+    this.inspectionRequestGeneration += 1;
     this.loadingState.set(true);
     this.errorState.set(null);
     this.hivesState.set([]);
@@ -140,27 +142,34 @@ export class HivesStore {
   async loadInspectionPage(hiveId: string, page: number): Promise<void> {
     if (this.isLoadingInspectionPage(hiveId)) return;
 
+    const requestGeneration = this.inspectionRequestGeneration;
     this.updateInspectionPaginationState(hiveId, {
       loadingPage: page,
       failure: null,
     });
     try {
       const result = await this.hivesService.listInspections(hiveId, page);
+      if (requestGeneration !== this.inspectionRequestGeneration) return;
+
       this.hivesState.update((hives) => hives.map((hive) => hive.hiveId === hiveId
         ? { ...hive, inspections: result.inspections, inspectionPagination: result.pagination }
         : hive));
     } catch (error) {
+      if (requestGeneration !== this.inspectionRequestGeneration) return;
+
       this.updateInspectionPaginationState(hiveId, {
         loadingPage: page,
         failure: { message: extractErrorMessage(error), page },
       });
     } finally {
-      const currentState = this.inspectionPaginationState()[hiveId];
-      if (currentState) {
-        this.updateInspectionPaginationState(hiveId, {
-          ...currentState,
-          loadingPage: null,
-        });
+      if (requestGeneration === this.inspectionRequestGeneration) {
+        const currentState = this.inspectionPaginationState()[hiveId];
+        if (currentState) {
+          this.updateInspectionPaginationState(hiveId, {
+            ...currentState,
+            loadingPage: null,
+          });
+        }
       }
     }
   }

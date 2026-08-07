@@ -1,12 +1,18 @@
+import { resolve } from "node:path";
+
 import { defineConfig, devices } from "@playwright/test";
+import { config } from "dotenv";
+
+import { resolveRealApiEnvironment } from "./helpers/real-api-environment";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:4200";
 const apiURL = process.env.PLAYWRIGHT_API_URL ?? "http://localhost:3000/api/health";
-const apiEnvironment = {
-  ...process.env,
-  NODE_ENV: "test",
-  DB_NAME: process.env.DB_NAME ?? "appiary_test",
-} as Record<string, string>;
+const rootEnvironment = config({
+  path: resolve(__dirname, "../../.env"),
+  processEnv: {},
+}).parsed;
+const apiEnvironment = resolveRealApiEnvironment(process.env, rootEnvironment);
+Object.assign(process.env, apiEnvironment);
 
 export default defineConfig({
   testDir: "./tests",
