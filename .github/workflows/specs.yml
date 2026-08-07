@@ -123,5 +123,8 @@ jobs:
       - name: Install Chromium
         run: npx playwright install chromium --with-deps
 
-      - name: Run E2E specs
-        run: npm run test:e2e
+      - name: Run mocked E2E specs
+        run: npm run test:e2e:mocked
+
+      - name: Run real API E2E specs
+        run: npm run test:e2e:real

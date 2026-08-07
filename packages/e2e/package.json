@@ -3,13 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "playwright test",
+    "test": "npm run test:mocked && npm run test:real",
+    "test:mocked": "playwright test --grep-invert @real-api",
+    "test:real": "playwright test --grep @real-api --workers=1",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "install:browsers": "playwright install"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.0",
+    "@types/pg": "^8.15.1",
+    "dotenv": "^16.5.0",
+    "pg": "^8.16.0",
     "typescript": "^5.8.3"
   }
 }

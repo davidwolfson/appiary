@@ -272,7 +272,7 @@ describe("HiveCardComponent", () => {
     expect(space.defaultPrevented).toBe(true);
   });
 
-  it("paginates history in groups of five with accessible boundary controls", () => {
+  it("supports legacy client-side pagination in groups of five", () => {
     // given a hive has six inspections
     const inspections = createInspections(6);
     fixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections });
@@ -299,7 +299,7 @@ describe("HiveCardComponent", () => {
     expect(next.disabled).toBe(true);
   });
 
-  it("omits pagination for histories of five or fewer inspections", () => {
+  it("omits legacy pagination for histories of five or fewer inspections", () => {
     // given a hive has exactly one full page of inspections
     fixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections: createInspections(5) });
 
@@ -311,7 +311,7 @@ describe("HiveCardComponent", () => {
     expect(fixture.nativeElement.querySelector("button[aria-label='Next inspections for hive card 1']")).toBeNull();
   });
 
-  it("supports middle pages and bounded previous navigation", () => {
+  it("supports legacy middle pages and bounded previous navigation", () => {
     // given a hive has three pages of inspections
     fixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections: createInspections(11) });
     fixture.detectChanges();
@@ -332,7 +332,7 @@ describe("HiveCardComponent", () => {
     expect(fixture.nativeElement.textContent).toContain("7/30/2026");
   });
 
-  it("resets to the first page when inspection input is replaced", () => {
+  it("resets legacy pagination when inspection input is replaced", () => {
     // given a card is displaying an older page
     fixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections: createInspections(6) });
     fixture.detectChanges();
@@ -348,7 +348,7 @@ describe("HiveCardComponent", () => {
     expect(fixture.nativeElement.textContent).toContain("7/30/2026");
   });
 
-  it("emits an inspection opened from a later page", () => {
+  it("opens an inspection from a later legacy page", () => {
     // given a hive has an inspection on a second page
     const inspections = createInspections(6);
     const emitted: unknown[] = [];
@@ -363,6 +363,102 @@ describe("HiveCardComponent", () => {
 
     // then that inspection is emitted
     expect(emitted).toEqual([inspections[5]]);
+  });
+
+  it("emits server page requests without slicing the supplied inspection page", () => {
+    // given a server-provided middle page contains one inspection
+    const inspections = createInspections(1);
+    const emitted: number[] = [];
+    fixture.componentRef.setInput("hive", {
+      hiveId: "hive-1",
+      name: "North Field",
+      status: true,
+      inspections,
+      inspectionPagination: { page: 2, pageSize: 5, totalItems: 11, totalPages: 3 },
+    });
+    fixture.componentInstance.inspectionPageRequested.subscribe((page) => emitted.push(page));
+    fixture.detectChanges();
+    const previous = fixture.nativeElement.querySelector("button[aria-label='Previous inspections for hive card 1']") as HTMLButtonElement;
+    const next = fixture.nativeElement.querySelector("button[aria-label='Next inspections for hive card 1']") as HTMLButtonElement;
+
+    // when both adjacent pages are requested
+    previous.click();
+    next.click();
+    fixture.detectChanges();
+
+    // then page numbers are emitted while the current server page remains unchanged
+    expect(emitted).toEqual([1, 3]);
+    expect(previous.disabled).toBe(false);
+    expect(next.disabled).toBe(false);
+    expect(fixture.nativeElement.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(fixture.nativeElement.textContent).toContain("7/30/2026");
+  });
+
+  it("keeps inspection history visible with a retryable pagination alert", () => {
+    // given a server-provided page and its pagination failure are supplied
+    const emitted: void[] = [];
+    fixture.componentRef.setInput("hive", {
+      hiveId: "hive-1",
+      name: "North Field",
+      status: true,
+      inspections: createInspections(1),
+      inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 },
+    });
+    fixture.componentRef.setInput("inspectionPaginationError", "Could not load inspections");
+    fixture.componentInstance.inspectionPageRetryRequested.subscribe(() => emitted.push(undefined));
+
+    // when the card renders and Retry is clicked
+    fixture.detectChanges();
+    const retry = fixture.nativeElement.querySelector("button[aria-label='Retry inspections for hive card 1']") as HTMLButtonElement;
+    retry.click();
+
+    // then the alert, existing row, paging controls, and one retry emission remain available
+    expect((fixture.nativeElement.querySelector("[role='alert']") as HTMLElement).textContent).toContain("Could not load inspections");
+    expect(fixture.nativeElement.querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector("button[aria-label='Previous inspections for hive card 1']")).not.toBeNull();
+    expect(fixture.nativeElement.querySelector("button[aria-label='Next inspections for hive card 1']")).not.toBeNull();
+    expect(emitted).toHaveLength(1);
+  });
+
+  it("shows pagination failures without inspection rows", () => {
+    // given an empty server-provided page has failed to paginate
+    fixture.componentRef.setInput("hive", {
+      hiveId: "hive-1",
+      name: "North Field",
+      status: true,
+      inspections: [],
+      inspectionPagination: { page: 1, pageSize: 5, totalItems: 0, totalPages: 0 },
+    });
+    fixture.componentRef.setInput("inspectionPaginationError", "Could not load inspections");
+
+    // when the card renders
+    fixture.detectChanges();
+
+    // then its alert and scoped retry remain visible without a table
+    expect(fixture.nativeElement.querySelector("[role='alert']")).not.toBeNull();
+    expect(fixture.nativeElement.querySelector("button[aria-label='Retry inspections for hive card 1']")).not.toBeNull();
+    expect(fixture.nativeElement.querySelector("table")).toBeNull();
+  });
+
+  it("disables retry and server pagination while loading", () => {
+    // given a failed paginated card starts loading its retry
+    fixture.componentRef.setInput("hive", {
+      hiveId: "hive-1",
+      name: "North Field",
+      status: true,
+      inspections: createInspections(1),
+      inspectionPagination: { page: 2, pageSize: 5, totalItems: 11, totalPages: 3 },
+    });
+    fixture.componentRef.setInput("inspectionPaginationError", "Could not load inspections");
+    fixture.componentRef.setInput("loadingInspections", true);
+
+    // when the card renders
+    fixture.detectChanges();
+
+    // then retry and both adjacent page controls are disabled
+    expect((fixture.nativeElement.querySelector("button[aria-label='Retry inspections for hive card 1']") as HTMLButtonElement).disabled).toBe(true);
+    expect((fixture.nativeElement.querySelector("button[aria-label='Previous inspections for hive card 1']") as HTMLButtonElement).disabled).toBe(true);
+    expect((fixture.nativeElement.querySelector("button[aria-label='Next inspections for hive card 1']") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("emits the selected inspection from history", () => {

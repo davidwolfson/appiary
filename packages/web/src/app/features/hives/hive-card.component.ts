@@ -33,11 +33,17 @@ export class HiveCardComponent {
   @Input()
   loadingInspections = false;
 
+  @Input()
+  inspectionPaginationError: string | null = null;
+
   @Input({ required: true })
   cardIndex!: number;
 
   @Output()
   readonly inspectionPageRequested = new EventEmitter<number>();
+
+  @Output()
+  readonly inspectionPageRetryRequested = new EventEmitter<void>();
 
   protected get inspections(): HiveInspectionViewModel[] {
     if (this.hive.inspectionPagination) return this.hive.inspections ?? [];
@@ -111,6 +117,10 @@ export class HiveCardComponent {
       return;
     }
     this.inspectionPageRequested.emit(this.pagination.page + 1);
+  }
+
+  protected retryInspectionPage(): void {
+    this.inspectionPageRetryRequested.emit();
   }
 
   private get pagination() {

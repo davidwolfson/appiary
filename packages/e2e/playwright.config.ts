@@ -5,7 +5,7 @@ const apiURL = process.env.PLAYWRIGHT_API_URL ?? "http://localhost:3000/api/heal
 const apiEnvironment = {
   ...process.env,
   NODE_ENV: "test",
-  DB_NAME: "appiary_test",
+  DB_NAME: process.env.DB_NAME ?? "appiary_test",
 } as Record<string, string>;
 
 export default defineConfig({

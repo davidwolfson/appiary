@@ -5,6 +5,7 @@ import type {
   CreateHiveInspectionRequest,
   HiveInspectionResponse,
   HiveResponse,
+  ListHiveInspectionsResponse,
   ListHivesResponse,
   UpdateHiveRequest,
 } from "@appiary/types";
@@ -133,4 +134,38 @@ export async function mockCreateInspectionRequest(
     await handler(route, hiveId, payload);
   });
   return { requests };
+}
+
+export async function mockListInspectionsRequest(
+  page: Page,
+  handler: (route: Route, hiveId: string, pageNumber: number) => Promise<void>,
+): Promise<{ requests: Array<{ hiveId: string; page: number }> }> {
+  const requests: Array<{ hiveId: string; page: number }> = [];
+
+  await page.route("**/api/hives/*/inspections?*", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    const url = new URL(route.request().url());
+    const segments = url.pathname.split("/");
+    const hiveId = segments.at(-2) ?? "";
+    const pageNumber = Number(url.searchParams.get("page"));
+    requests.push({ hiveId, page: pageNumber });
+    await handler(route, hiveId, pageNumber);
+  });
+
+  return { requests };
+}
+
+export async function fulfillInspectionPage(
+  route: Route,
+  response: ListHiveInspectionsResponse,
+): Promise<void> {
+  await route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify(response),
+  });
 }

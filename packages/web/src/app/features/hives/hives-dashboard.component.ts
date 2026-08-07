@@ -117,10 +117,6 @@ export class HivesDashboardComponent implements OnInit {
     }
   }
 
-  protected isLoadingInspectionPage(hiveId: string): boolean {
-    return this.hivesStore.loadingInspectionHiveId?.() === hiveId;
-  }
-
   private captureModalTrigger(): void {
     const activeElement = this.document.activeElement;
     this.modalTrigger = activeElement instanceof HTMLElement ? activeElement : null;

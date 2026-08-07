@@ -45,6 +45,10 @@ export function createHivesDashboardPage(page: Page) {
     hiveCard(hiveId).getByRole("button", { name: "Previous inspections" });
   const nextInspectionsButton = (hiveId: string) =>
     hiveCard(hiveId).getByRole("button", { name: "Next inspections" });
+  const inspectionPaginationAlert = (hiveId: string) =>
+    hiveCard(hiveId).getByRole("alert");
+  const retryInspectionsButton = (hiveId: string) =>
+    hiveCard(hiveId).getByRole("button", { name: "Retry inspections" });
 
   return {
     hiveControls,
@@ -72,6 +76,8 @@ export function createHivesDashboardPage(page: Page) {
     inspectionRow,
     previousInspectionsButton,
     nextInspectionsButton,
+    inspectionPaginationAlert,
+    retryInspectionsButton,
     hiveNameInput,
     statusSelect,
     hiveStatusFilter,
