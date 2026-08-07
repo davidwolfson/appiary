@@ -85,7 +85,7 @@ On startup, the API applies pending migrations from `packages/api/db/migrations`
 | `npm run build` | Build the shared types, API, and frontend. |
 | `npm run dev:api` | Start the API with file watching. |
 | `npm run dev:web` | Start the Angular development server. |
-| `npm run test:api` | Run API tests. Requires a configured PostgreSQL database. |
+| `npm run test:api` | Run API tests against the dedicated `appiary_test` PostgreSQL database. |
 | `npm run test:web` | Run frontend unit tests. |
 | `npm run test:e2e` | Run Playwright tests; starts local API and web servers when needed. |
 | `npm run test:e2e:headed` | Run browser tests with a visible browser. |
@@ -115,4 +115,12 @@ Protected requests use `Authorization: Bearer <token>`. The shared request and r
 
 ## Testing notes
 
-API and end-to-end tests need a PostgreSQL database matching the `.env` configuration. The CI workflow uses a disposable PostgreSQL 16 database named `appiary_test` and Node.js 22. Playwright uses Chromium and can install it with `npm run test:e2e:install`.
+API and end-to-end tests use a dedicated PostgreSQL database named exactly `appiary_test`; they never use the normal `appiary` development database. Create it locally with credentials matching your `.env` before running either suite, for example:
+
+```bash
+createdb -h localhost -U postgres appiary_test
+```
+
+Test runners set `NODE_ENV=test` and `DB_NAME=appiary_test` themselves. The API fails before opening a database pool or running migrations if test mode is configured with any other database name. Shell and CI connection values take precedence; Vitest supplies local defaults for values not provided, while Playwright's managed API can fill missing connection values from `.env`.
+
+The CI workflow uses a disposable PostgreSQL 16 service with the same database name and Node.js 22. Playwright uses Chromium and can install it with `npm run test:e2e:install`. It always starts its own controlled API process, so port 3000 must be free; an existing API on that port makes the E2E run fail safely.

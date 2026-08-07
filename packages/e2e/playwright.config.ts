@@ -2,6 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:4200";
 const apiURL = process.env.PLAYWRIGHT_API_URL ?? "http://localhost:3000/api/health";
+const apiEnvironment = {
+  ...process.env,
+  NODE_ENV: "test",
+  DB_NAME: "appiary_test",
+} as Record<string, string>;
 
 export default defineConfig({
   testDir: "./tests",
@@ -18,7 +23,8 @@ export default defineConfig({
     {
       command: "npm run dev:api",
       url: apiURL,
-      reuseExistingServer: !process.env.CI,
+      env: apiEnvironment,
+      reuseExistingServer: false,
       cwd: "../../",
       timeout: 120 * 1000,
     },
