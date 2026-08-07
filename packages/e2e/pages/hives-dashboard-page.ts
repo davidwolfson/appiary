@@ -35,8 +35,12 @@ export function createHivesDashboardPage(page: Page) {
   const saveInspectionButton = inspectionModal.getByRole("button", { name: "Save", exact: true });
   const cancelInspectionButton = inspectionModal.getByRole("button", { name: "Cancel" });
   const closeInspectionButton = inspectionModal.getByRole("button", { name: "Close" });
-  const inspectionDateButton = (hiveId: string, date: string) =>
-    hiveCard(hiveId).getByRole("button", { name: date, exact: true });
+  const formatInspectionDate = (date: string) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+    return match ? `${Number(match[2])}/${Number(match[3])}/${match[1]}` : date;
+  };
+  const inspectionRow = (hiveId: string, date: string) =>
+    hiveCard(hiveId).getByRole("row", { name: `View inspection from ${formatInspectionDate(date)}`, exact: true });
   const previousInspectionsButton = (hiveId: string) =>
     hiveCard(hiveId).getByRole("button", { name: "Previous inspections" });
   const nextInspectionsButton = (hiveId: string) =>
@@ -65,7 +69,7 @@ export function createHivesDashboardPage(page: Page) {
     saveInspectionButton,
     cancelInspectionButton,
     closeInspectionButton,
-    inspectionDateButton,
+    inspectionRow,
     previousInspectionsButton,
     nextInspectionsButton,
     hiveNameInput,
@@ -108,7 +112,7 @@ export function createHivesDashboardPage(page: Page) {
       await expect(inspectionModal).toBeVisible();
     },
     async openInspection(hiveId: string, date: string): Promise<void> {
-      await inspectionDateButton(hiveId, date).click();
+      await inspectionRow(hiveId, date).click();
       await expect(inspectionModal).toBeVisible();
     },
     async showPreviousInspections(hiveId: string): Promise<void> {

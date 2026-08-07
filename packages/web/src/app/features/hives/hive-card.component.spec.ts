@@ -29,7 +29,7 @@ describe("HiveCardComponent", () => {
     fixture.componentRef.setInput("cardIndex", 0);
   });
 
-  it("renders the hive name and active status", () => {
+  it("renders an active icon beside the Hive title", () => {
     // given an active hive is supplied to the card
     fixture.componentRef.setInput("hive", {
       hiveId: "hive-1",
@@ -40,12 +40,18 @@ describe("HiveCardComponent", () => {
     // when the card view is rendered
     fixture.detectChanges();
 
-    // then the hive name and active status are visible
+    // then the hive name and green checkmark icon with an Active tooltip are visible
+    const title = fixture.nativeElement.querySelector(".brand-mark") as HTMLElement;
+    const statusIcon = fixture.nativeElement.querySelector("[role='img'][aria-label='Active']") as HTMLElement;
     expect(fixture.nativeElement.textContent).toContain("North Field");
-    expect(fixture.nativeElement.textContent).toContain("Active");
+    expect(statusIcon.previousElementSibling).toBe(title);
+    expect(statusIcon.textContent?.trim()).toBe("✓");
+    expect(statusIcon.classList).toContain("bg-success");
+    expect(statusIcon.title).toBe("Active");
+    expect(fixture.nativeElement.querySelector(".badge")).toBeNull();
   });
 
-  it("renders inactive status", () => {
+  it("renders an inactive icon beside the Hive title", () => {
     // given an inactive hive is supplied to the card
     fixture.componentRef.setInput("hive", {
       hiveId: "hive-1",
@@ -56,8 +62,14 @@ describe("HiveCardComponent", () => {
     // when the card view is rendered
     fixture.detectChanges();
 
-    // then the inactive status is visible
-    expect(fixture.nativeElement.textContent).toContain("Inactive");
+    // then a gray minus icon with an Inactive tooltip is beside the title
+    const title = fixture.nativeElement.querySelector(".brand-mark") as HTMLElement;
+    const statusIcon = fixture.nativeElement.querySelector("[role='img'][aria-label='Inactive']") as HTMLElement;
+    expect(statusIcon.previousElementSibling).toBe(title);
+    expect(statusIcon.textContent?.trim()).toBe("−");
+    expect(statusIcon.classList).toContain("text-secondary");
+    expect(statusIcon.title).toBe("Inactive");
+    expect(fixture.nativeElement.querySelector(".badge")).toBeNull();
   });
 
   it("renders an edit button with tooltip text", () => {
@@ -144,6 +156,122 @@ describe("HiveCardComponent", () => {
     expect(fixture.nativeElement.querySelector("table")).toBeNull();
   });
 
+  it("renders the revised inspection table with calendar dates", () => {
+    // given a hive has valid and malformed inspection dates
+    const inspections = createInspections(2);
+    inspections[1].inspectionDate = "not-a-date";
+    fixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections });
+
+    // when the card renders its inspection table
+    fixture.detectChanges();
+
+    // then the title, headers, plain formatted date, and malformed fallback are visible
+    const table = fixture.nativeElement.querySelector("table") as HTMLTableElement;
+    const headers = Array.from(table.querySelectorAll("th"), (header) => header.textContent?.trim());
+    const dateCell = table.querySelector("tbody tr:first-child td:first-child") as HTMLTableCellElement;
+    expect(table.caption?.textContent?.trim()).toBe("Inspections");
+    expect(headers).toEqual(["Date", "Summary", "Notes"]);
+    expect(dateCell.textContent?.trim()).toBe("7/30/2026");
+    expect(dateCell.querySelector("button, a")).toBeNull();
+    expect(table.querySelector("tbody tr:nth-child(2) td:first-child")?.textContent?.trim()).toBe("not-a-date");
+  });
+
+  it("renders ordered summaries and result tooltips for every brood-pattern mapping", () => {
+    // given inspections contain full, partial, omitted, and mapped findings
+    const inspections = [
+      { ...createInspections(1)[0], inspectionId: "full", broodPattern: "good" as const },
+      { ...createInspections(1)[0], inspectionId: "partial", queenRight: false, eggs: true, larva: false, cappedBrood: true, broodPattern: "fair" as const },
+      { ...createInspections(1)[0], inspectionId: "poor", queenRight: false, eggs: false, larva: false, cappedBrood: false, broodPattern: "poor" as const },
+      { ...createInspections(1)[0], inspectionId: "na", queenRight: false, eggs: false, larva: false, cappedBrood: false, broodPattern: "na" as const },
+      { ...createInspections(1)[0], inspectionId: "null", queenRight: false, eggs: false, larva: false, cappedBrood: false, broodPattern: null },
+    ];
+    fixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections });
+
+    // when the summary cells render
+    fixture.detectChanges();
+
+    // then compact tokens and verbose labels use matching order without placeholders
+    const summaryCells = Array.from(fixture.nativeElement.querySelectorAll("tbody td:nth-child(2)")) as HTMLTableCellElement[];
+    const summaries = summaryCells.map((cell) => cell.textContent?.trim());
+    expect(summaries).toEqual(["QRELCB3", "ECB2", "1", "", ""]);
+    expect(summaryCells.map((cell) => cell.getAttribute("title"))).toEqual([
+      "queen-right, eggs, larvae, capped brood, good pattern",
+      "eggs, capped brood, fair pattern",
+      "poor pattern",
+      null,
+      null,
+    ]);
+  });
+
+  it("shows trimmed note icons only for meaningful notes", () => {
+    // given inspections have populated, null, empty, and whitespace notes
+    const inspections = ["  Healthy colony  ", null, "", "   "].map((additionalNotes, index) => ({
+      ...createInspections(1)[0],
+      inspectionId: `inspection-${index}`,
+      additionalNotes,
+    }));
+    fixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections });
+
+    // when the notes cells render
+    fixture.detectChanges();
+
+    // then only the populated note produces an accessible icon and trimmed tooltip
+    const summaryCells = fixture.nativeElement.querySelectorAll("tbody td:nth-child(2)") as NodeListOf<HTMLTableCellElement>;
+    const notesCells = fixture.nativeElement.querySelectorAll("tbody td:nth-child(3)") as NodeListOf<HTMLTableCellElement>;
+    const noteIcon = notesCells[0].querySelector("[role='img']") as HTMLElement;
+    expect(summaryCells[0].getAttribute("title")).toBe("queen-right, eggs, larvae, capped brood");
+    expect(noteIcon.getAttribute("title")).toBe("Healthy colony");
+    expect(noteIcon.getAttribute("aria-label")).toBe("Additional notes: Healthy colony");
+    expect(noteIcon.querySelector("button, a")).toBeNull();
+    expect(Array.from(notesCells, (cell) => cell.querySelectorAll("[role='img'], [title]").length)).toEqual([1, 0, 0, 0]);
+  });
+
+  it("opens and focuses an inspection from every row cell and the notes icon", () => {
+    // given a row is listening for inspection activation
+    const inspection = { ...createInspections(1)[0], additionalNotes: "Healthy colony" };
+    const emitted: unknown[] = [];
+    const focusedAtEmission: Element[] = [];
+    fixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections: [inspection] });
+    fixture.componentInstance.viewInspection.subscribe((value) => {
+      emitted.push(value);
+      focusedAtEmission.push(document.activeElement!);
+    });
+    fixture.detectChanges();
+    const row = fixture.nativeElement.querySelector("tbody tr") as HTMLTableRowElement;
+    const cells = row.querySelectorAll("td");
+
+    // when each cell and the nested notes icon are clicked
+    (cells[0] as HTMLElement).click();
+    (cells[1] as HTMLElement).click();
+    (cells[2] as HTMLElement).click();
+    (cells[2].querySelector("[role='img']") as HTMLElement).click();
+
+    // then each activation emits once with the row focused first
+    expect(emitted).toEqual([inspection, inspection, inspection, inspection]);
+    expect(focusedAtEmission).toEqual([row, row, row, row]);
+  });
+
+  it("opens inspections with Enter and Space without scrolling", () => {
+    // given a focusable inspection row is listening for keyboard activation
+    const inspection = createInspections(1)[0];
+    const emitted: unknown[] = [];
+    fixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections: [inspection] });
+    fixture.componentInstance.viewInspection.subscribe((value) => emitted.push(value));
+    fixture.detectChanges();
+    const row = fixture.nativeElement.querySelector("tbody tr") as HTMLTableRowElement;
+    const enter = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    const space = new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true });
+
+    // when Enter and Space activate the row
+    row.dispatchEvent(enter);
+    row.dispatchEvent(space);
+
+    // then both emit exactly once, focus the row, and Space prevents scrolling
+    expect(emitted).toEqual([inspection, inspection]);
+    expect(document.activeElement).toBe(row);
+    expect(space.defaultPrevented).toBe(true);
+  });
+
   it("paginates history in groups of five with accessible boundary controls", () => {
     // given a hive has six inspections
     const inspections = createInspections(6);
@@ -156,7 +284,7 @@ describe("HiveCardComponent", () => {
     const previous = fixture.nativeElement.querySelector("button[aria-label='Previous inspections for hive card 1']") as HTMLButtonElement;
     const next = fixture.nativeElement.querySelector("button[aria-label='Next inspections for hive card 1']") as HTMLButtonElement;
     expect(fixture.nativeElement.querySelectorAll("tbody tr")).toHaveLength(5);
-    expect(fixture.nativeElement.textContent).not.toContain("2026-07-25");
+    expect(fixture.nativeElement.textContent).not.toContain("7/25/2026");
     expect(previous.disabled).toBe(true);
     expect(next.disabled).toBe(false);
 
@@ -166,7 +294,7 @@ describe("HiveCardComponent", () => {
 
     // then the final partial page is shown at its boundary
     expect(fixture.nativeElement.querySelectorAll("tbody tr")).toHaveLength(1);
-    expect(fixture.nativeElement.textContent).toContain("2026-07-25");
+    expect(fixture.nativeElement.textContent).toContain("7/25/2026");
     expect(previous.disabled).toBe(false);
     expect(next.disabled).toBe(true);
   });
@@ -201,7 +329,7 @@ describe("HiveCardComponent", () => {
     // then both directions were available in the middle and navigation stops on page one
     expect(middleState).toEqual({ previousDisabled: false, nextDisabled: false });
     expect(previous.disabled).toBe(true);
-    expect(fixture.nativeElement.textContent).toContain("2026-07-30");
+    expect(fixture.nativeElement.textContent).toContain("7/30/2026");
   });
 
   it("resets to the first page when inspection input is replaced", () => {
@@ -217,7 +345,7 @@ describe("HiveCardComponent", () => {
 
     // then the card safely returns to the first page
     expect(fixture.nativeElement.querySelectorAll("tbody tr")).toHaveLength(2);
-    expect(fixture.nativeElement.textContent).toContain("2026-07-30");
+    expect(fixture.nativeElement.textContent).toContain("7/30/2026");
   });
 
   it("emits an inspection opened from a later page", () => {
@@ -231,7 +359,7 @@ describe("HiveCardComponent", () => {
     // when the later inspection is opened
     (fixture.nativeElement.querySelector("button[aria-label='Next inspections for hive card 1']") as HTMLButtonElement).click();
     fixture.detectChanges();
-    fixture.nativeElement.querySelector("tbody button").click();
+    fixture.nativeElement.querySelector("tbody tr").click();
 
     // then that inspection is emitted
     expect(emitted).toEqual([inspections[5]]);
@@ -245,8 +373,8 @@ describe("HiveCardComponent", () => {
     fixture.componentInstance.viewInspection.subscribe((value) => emitted.push(value));
     fixture.detectChanges();
 
-    // when its date is clicked
-    fixture.nativeElement.querySelector("tbody button").click();
+    // when its date cell is clicked
+    fixture.nativeElement.querySelector("tbody td:first-child").click();
 
     // then that inspection is emitted
     expect(emitted).toEqual([inspection]);

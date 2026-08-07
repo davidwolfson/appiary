@@ -479,7 +479,7 @@ describe("HivesDashboardComponent", () => {
     fixture.detectChanges();
 
     // when the historical inspection is opened
-    (fixture.nativeElement.querySelector("tbody button") as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector("tbody tr") as HTMLTableRowElement).click();
     fixture.detectChanges();
 
     // then the stale create error is cleared from the history modal
@@ -515,8 +515,8 @@ describe("HivesDashboardComponent", () => {
     hasHivesState.set(true);
     fixture.detectChanges();
 
-    // when its history date is clicked
-    fixture.nativeElement.querySelector("tbody button").click();
+    // when its history row is clicked
+    fixture.nativeElement.querySelector("tbody tr").click();
     fixture.detectChanges();
 
     // then values are disabled and no save action is present

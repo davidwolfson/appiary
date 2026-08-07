@@ -57,10 +57,6 @@ export class HiveCardComponent {
     return this.loadingInspections || this.pagination.page >= this.pagination.totalPages;
   }
 
-  protected get statusLabel(): string {
-    return this.hive.status ? "Active" : "Inactive";
-  }
-
   protected editHive(): void {
     this.edit.emit(this.hive);
   }
@@ -69,7 +65,35 @@ export class HiveCardComponent {
     this.addInspection.emit(this.hive);
   }
 
-  protected openInspection(inspection: HiveInspectionViewModel): void {
+  protected formatInspectionDate(value: string): string {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return value;
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const daysInMonth = [31, this.isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]) return value;
+
+    return `${month}/${day}/${year}`;
+  }
+
+  protected inspectionSummary(inspection: HiveInspectionViewModel): string {
+    return this.inspectionResults(inspection).map(({ compact }) => compact).join("");
+  }
+
+  protected inspectionResultDescription(inspection: HiveInspectionViewModel): string | null {
+    const description = this.inspectionResults(inspection).map(({ verbose }) => verbose).join(", ");
+    return description || null;
+  }
+
+  protected inspectionNotes(inspection: HiveInspectionViewModel): string | null {
+    const notes = inspection.additionalNotes?.trim();
+    return notes || null;
+  }
+
+  protected openInspection(inspection: HiveInspectionViewModel, row: HTMLTableRowElement): void {
+    row.focus();
     this.viewInspection.emit(inspection);
   }
 
@@ -96,5 +120,27 @@ export class HiveCardComponent {
       totalItems: this.hive.inspections?.length ?? 0,
       totalPages: Math.ceil((this.hive.inspections?.length ?? 0) / 5),
     };
+  }
+
+  private inspectionResults(inspection: HiveInspectionViewModel): Array<{ compact: string; verbose: string }> {
+    const results = [
+      inspection.queenRight ? { compact: "QR", verbose: "queen-right" } : null,
+      inspection.eggs ? { compact: "E", verbose: "eggs" } : null,
+      inspection.larva ? { compact: "L", verbose: "larvae" } : null,
+      inspection.cappedBrood ? { compact: "CB", verbose: "capped brood" } : null,
+      inspection.broodPattern === "good"
+        ? { compact: "3", verbose: "good pattern" }
+        : inspection.broodPattern === "fair"
+          ? { compact: "2", verbose: "fair pattern" }
+          : inspection.broodPattern === "poor"
+            ? { compact: "1", verbose: "poor pattern" }
+            : null,
+    ];
+
+    return results.filter((result): result is { compact: string; verbose: string } => result !== null);
+  }
+
+  private isLeapYear(year: number): boolean {
+    return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
   }
 }

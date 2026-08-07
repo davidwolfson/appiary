@@ -466,10 +466,10 @@ test.describe("hives dashboard", () => {
     await expect.poll(() => requests.length).toBe(1);
     expect(requests[0]).toEqual({ hiveId: "hive-123", payload: input });
     await expect(dashboardPage.inspectionModal).toBeHidden();
-    await expect(dashboardPage.inspectionDateButton("hive-123", input.inspectionDate)).toBeVisible();
+    await expect(dashboardPage.inspectionRow("hive-123", input.inspectionDate)).toBeVisible();
     await expect(dashboardPage.previousInspectionsButton("hive-123")).toBeDisabled();
     await dashboardPage.showNextInspections("hive-123");
-    await expect(dashboardPage.inspectionDateButton("hive-123", "2026-07-26")).toBeVisible();
+    await expect(dashboardPage.inspectionRow("hive-123", "2026-07-26")).toBeVisible();
     await expect(dashboardPage.hiveCard("hive-456").getByRole("table")).toHaveCount(0);
   });
 
@@ -570,11 +570,11 @@ test.describe("hives dashboard", () => {
     await dashboardPage.showNextInspections("hive-123");
 
     // then its older entry and boundary state appear without changing the other hive
-    await expect(dashboardPage.inspectionDateButton("hive-123", "2026-07-25")).toBeVisible();
+    await expect(dashboardPage.inspectionRow("hive-123", "2026-07-25")).toBeVisible();
     await expect(dashboardPage.previousInspectionsButton("hive-123")).toBeEnabled();
     await expect(dashboardPage.nextInspectionsButton("hive-123")).toBeDisabled();
-    await expect(dashboardPage.inspectionDateButton("hive-other", "2026-06-30")).toBeVisible();
-    await expect(dashboardPage.inspectionDateButton("hive-other", "2026-06-25")).toHaveCount(0);
+    await expect(dashboardPage.inspectionRow("hive-other", "2026-06-30")).toBeVisible();
+    await expect(dashboardPage.inspectionRow("hive-other", "2026-06-25")).toHaveCount(0);
     await expect(dashboardPage.hiveCard("hive-empty").getByRole("table")).toHaveCount(0);
     await expect(dashboardPage.previousInspectionsButton("hive-empty")).toHaveCount(0);
 
@@ -582,24 +582,32 @@ test.describe("hives dashboard", () => {
     await dashboardPage.showPreviousInspections("hive-123");
 
     // then the newest five and initial boundary state return
-    await expect(dashboardPage.hiveCard("hive-123").getByRole("button", { name: /^2026-07-/ })).toHaveCount(5);
-    await expect(dashboardPage.inspectionDateButton("hive-123", "2026-07-25")).toHaveCount(0);
+    await expect(dashboardPage.hiveCard("hive-123").getByRole("row", { name: /^View inspection from / })).toHaveCount(5);
+    await expect(dashboardPage.inspectionRow("hive-123", "2026-07-25")).toHaveCount(0);
     await expect(dashboardPage.previousInspectionsButton("hive-123")).toBeDisabled();
   });
 
-  test("opens history read-only and restores focus to its date trigger", async ({ page }) => {
+  test("renders inspection summaries and opens history read-only with row focus restoration", async ({ page }) => {
     const dashboardPage = createHivesDashboardPage(page);
-    const inspection = createInspection();
+    const inspection = createInspection({ cappedBrood: true });
 
     // given an inspection date is visible in hive history
     await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [createHive({ inspections: [inspection] })]);
     await dashboardPage.goto();
-    const dateTrigger = dashboardPage.hiveCard("hive-123").getByRole("button", { name: inspection.inspectionDate });
+    const inspectionRow = dashboardPage.inspectionRow("hive-123", inspection.inspectionDate);
 
     // when I open the historical inspection
     await dashboardPage.openInspection("hive-123", inspection.inspectionDate);
 
-    // then every value is populated read-only and create actions are absent
+    // then the revised history and every read-only value are shown and create actions are absent
+    const inspectionTable = dashboardPage.hiveCard("hive-123").getByRole("table", { name: "Inspections" });
+    await expect(inspectionTable).toBeVisible();
+    await expect(inspectionTable.getByRole("columnheader")).toHaveText(["Date", "Summary", "Notes"]);
+    await expect(inspectionRow.getByRole("cell").first()).toHaveText("7/30/2026");
+    await expect(inspectionRow.getByRole("link")).toHaveCount(0);
+    await expect(inspectionRow.getByRole("button")).toHaveCount(0);
+    await expect(inspectionRow.getByRole("cell", { name: "QRELCB3" })).toHaveAttribute("title", "queen-right, eggs, larvae, capped brood, good pattern");
+    await expect(inspectionRow.getByRole("img", { name: "Additional notes: Healthy colony" })).toHaveAttribute("title", "Healthy colony");
     await expect(dashboardPage.inspectionModal.getByText("North Field", { exact: true })).toBeVisible();
     await expect(dashboardPage.inspectionDateInput).toBeDisabled();
     await expect(dashboardPage.inspectionDateInput).toHaveValue(inspection.inspectionDate);
@@ -610,7 +618,7 @@ test.describe("hives dashboard", () => {
       await expect(checkbox).toBeChecked();
     }
     await expect(dashboardPage.cappedBroodCheckbox).toBeDisabled();
-    await expect(dashboardPage.cappedBroodCheckbox).not.toBeChecked();
+    await expect(dashboardPage.cappedBroodCheckbox).toBeChecked();
     for (const label of ["Good", "Fair", "Poor", "NA"] as const) await expect(dashboardPage.broodPatternRadio(label)).toBeDisabled();
     await expect(dashboardPage.broodPatternRadio("Good")).toBeChecked();
     await expect(dashboardPage.additionalNotesInput).toBeDisabled();
@@ -620,6 +628,6 @@ test.describe("hives dashboard", () => {
     await expect(dashboardPage.closeInspectionButton).toBeFocused();
     await dashboardPage.closeInspectionButton.click();
     await expect(dashboardPage.inspectionModal).toBeHidden();
-    await expect(dateTrigger).toBeFocused();
+    await expect(inspectionRow).toBeFocused();
   });
 });

@@ -13,21 +13,51 @@
 
   <div class="card-body d-flex flex-column gap-3 pe-5">
     <div>
-      <p class="brand-mark mb-2">Hive</p>
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <p class="brand-mark mb-0">Hive</p>
+        @if (hive.status) {
+          <span
+            class="d-inline-flex align-items-center justify-content-center rounded-circle bg-success text-white"
+            style="width: 1.25rem; height: 1.25rem"
+            role="img"
+            aria-label="Active"
+            title="Active"
+          >&#10003;</span>
+        } @else {
+          <span
+            class="d-inline-flex align-items-center justify-content-center text-secondary"
+            style="width: 1.25rem; height: 1.25rem"
+            role="img"
+            aria-label="Inactive"
+            title="Inactive"
+          >&#8722;</span>
+        }
+      </div>
       <h2 class="h5 mb-0 text-break">{{ hive.name }}</h2>
     </div>
 
-    <span class="badge align-self-start" [class.text-bg-success]="hive.status" [class.text-bg-secondary]="!hive.status">
-      {{ statusLabel }}
-    </span>
-
     @if (inspections.length > 0) {
       <table class="table table-sm mb-0">
-        <caption class="visually-hidden">Inspections for {{ hive.name }}</caption>
-        <thead><tr><th scope="col">Inspection Date</th></tr></thead>
+        <caption class="caption-top fw-semibold text-body pt-0">Inspections</caption>
+        <thead><tr><th scope="col">Date</th><th scope="col">Summary</th><th scope="col">Notes</th></tr></thead>
         <tbody>
           @for (inspection of inspections; track inspection.inspectionId) {
-            <tr><td><button class="btn btn-link p-0" type="button" (click)="openInspection(inspection)">{{ inspection.inspectionDate }}</button></td></tr>
+            <tr
+              #inspectionRow
+              tabindex="0"
+              [attr.aria-label]="'View inspection from ' + formatInspectionDate(inspection.inspectionDate)"
+              (click)="openInspection(inspection, inspectionRow)"
+              (keydown.enter)="openInspection(inspection, inspectionRow)"
+              (keydown.space)="$event.preventDefault(); openInspection(inspection, inspectionRow)"
+            >
+              <td>{{ formatInspectionDate(inspection.inspectionDate) }}</td>
+              <td [attr.title]="inspectionResultDescription(inspection)">{{ inspectionSummary(inspection) }}</td>
+              <td>
+                @if (inspectionNotes(inspection); as notes) {
+                  <span role="img" [attr.aria-label]="'Additional notes: ' + notes" [attr.title]="notes">&#128221;</span>
+                }
+              </td>
+            </tr>
           }
         </tbody>
       </table>
