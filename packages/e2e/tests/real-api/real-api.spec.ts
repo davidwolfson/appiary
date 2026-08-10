@@ -53,11 +53,15 @@ test.describe("real API smoke", () => {
 
     // when the guest registers, creates a hive and inspection, reloads, and signs in again
     await registerPage.fillForm(identity.registration);
+    const initialListHivesResponsePromise = page.waitForResponse(isApiResponse("GET", "/api/hives"));
     await registerPage.submit();
     const registrationResponse = await registerResponsePromise;
     const registration = await registrationResponse.json() as AuthResponse;
     cleanup.recordAccount(registration.user.accountId);
     await page.waitForURL(/\/$/);
+    const initialListHivesResponse = await initialListHivesResponsePromise;
+    await initialListHivesResponse.finished();
+    await dashboardPage.emptyState.waitFor({ state: "visible" });
 
     const createHiveResponsePromise = page.waitForResponse(isApiResponse("POST", "/api/hives"));
     await dashboardPage.openAddHiveModal();
@@ -95,6 +99,7 @@ test.describe("real API smoke", () => {
 
     // then both browser creates used the registration token and persisted DTO-compatible values
     expect(registrationResponse.status()).toBe(201);
+    expect(initialListHivesResponse.status()).toBe(200);
     expect(createHiveResponse.status()).toBe(201);
     expect(createInspectionResponse.status()).toBe(201);
     expectAuthorization(createHiveRequest, registration.token);
