@@ -91,6 +91,9 @@ On startup, the API applies pending migrations from `packages/api/db/migrations`
 | `npm run test:web` | Run frontend unit tests. |
 | `npm run test:web:ci` | Run frontend tests with coverage enforcement and JUnit output. |
 | `npm run test:e2e` | Run Playwright tests; starts local API and web servers when needed. |
+| `npm run test:e2e:mocked` | Run the full mocked Chromium suite, including required Axe scans. |
+| `npm run test:e2e:real` | Run the two real-API Chromium journeys with one worker. |
+| `npm run test:e2e:browser-smoke` | Run two mocked smoke journeys on Firefox, WebKit, and Pixel 7 emulation. |
 | `npm run test:e2e:headed` | Run browser tests with a visible browser. |
 | `npm run test:e2e:ui` | Open the Playwright UI. |
 | `npm run test:e2e:install` | Install Playwright browsers. |
@@ -137,4 +140,4 @@ API and web jobs retain JUnit plus HTML, LCOV, and JSON-summary coverage for 30 
 
 Download evidence from the workflow run's **Artifacts** section. Open a coverage artifact's `index.html` in a browser. For Playwright, extract the entire HTML report before opening `index.html`; inspect a trace with `npx playwright show-trace <trace.zip>`. Screenshots and videos are produced only on failure, while traces are produced on the first retry, so successful runs may not contain media attachments.
 
-Pull requests use mocked Chromium coverage for deterministic UI behavior and a separate, single-worker Chromium smoke lane against the real API and PostgreSQL. Axe scans and selective Firefox, WebKit, and mobile smoke coverage remain follow-up work.
+Pull requests use mocked Chromium coverage for deterministic UI behavior, including seven blocking WCAG 2.2 A/AA Axe states, and a separate single-worker Chromium lane against the real API and PostgreSQL. Axe confirmed violations fail the lane; incomplete checks are attached for human review. A separate weekly/manual workflow runs two `@browser-smoke` mocked journeys on Firefox Desktop, WebKit Desktop Safari, and Pixel 7 emulation, without expanding the full or `@real-api` suites. Its HTML, JUnit, trace, screenshot, and video outputs are retained for 14 days as `e2e-browser-smoke-test-results-<run>-<attempt>`.

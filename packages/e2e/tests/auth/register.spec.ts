@@ -285,7 +285,7 @@ test.describe("register", () => {
     await expect(page).toHaveURL(new RegExp(`${routes.register}$`));
   });
 
-  test("can navigate back to the login page", async ({ page }) => {
+  test("can navigate back to the login page @browser-smoke", async ({ page }) => {
     const registerPage = createRegisterPage(page);
 
     // given I am on the register page

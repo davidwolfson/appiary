@@ -74,7 +74,8 @@ It should not become:
 The suite currently uses:
 - `testDir: "./tests"`
 - `fullyParallel: true`
-- `chromium` as the active project
+- `chromium` for full mocked and real-API coverage
+- Firefox Desktop, WebKit Desktop Safari, and Pixel 7 Chromium emulation for tagged browser smoke coverage
 - Root workspace commands to start the API and web app
 - `baseURL` and API health URL from environment variables with localhost defaults
 - Trace, screenshot, and video capture for failure debugging
@@ -85,6 +86,17 @@ The suite currently uses:
 - Reuse the existing `baseURL` model rather than hardcoding full URLs in tests
 - Prefer route-relative navigation like `page.goto(routes.login)` through page objects
 - If a new feature needs extra shared setup, first decide whether it belongs in config, a helper, or a page object
+- Always pin full mocked, real-API, headed, and UI commands to `chromium`; adding a project must not multiply those suites
+- Secondary projects must require `@browser-smoke` and exclude `@real-api` in both configuration and the invoking command
+
+## Accessibility policy
+
+- Stable guest, dashboard, and major dialog states run Axe in the required mocked Chromium lane
+- Confirmed violations from cumulative WCAG 2.0, 2.1, and 2.2 Level A/AA tags fail regardless of impact
+- Attach normalized violation and incomplete-check JSON to each Playwright result
+- Treat incomplete checks as manual-review evidence, not confirmed violations
+- Do not introduce permanent baselines, blanket selector exclusions, or broad rule disables
+- Any verified false-positive exception must be narrow, documented, and tied to a follow-up issue
 
 ---
 
@@ -220,6 +232,8 @@ Examples:
 - `renders the login form for guests`
 - `redirects authenticated users away from the register page`
 - `shows a loading state while the login request is pending`
+
+Use `@real-api` only for journeys that exercise the live Express/PostgreSQL boundary. Use `@browser-smoke` only for the two representative, route-mocked compatibility journeys. The scheduled/manual browser lane must remain selective; Pixel 7 coverage is emulation rather than physical-device validation.
 
 ## Scenario Structure
 

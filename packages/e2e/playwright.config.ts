@@ -14,7 +14,7 @@ const rootEnvironment = config({
 const apiEnvironment = resolveRealApiEnvironment(process.env, rootEnvironment);
 Object.assign(process.env, apiEnvironment);
 
-const supportedLanes = ["all", "mocked", "real"] as const;
+const supportedLanes = ["all", "mocked", "real", "browser-smoke"] as const;
 const requestedLane = process.env.PLAYWRIGHT_LANE ?? "all";
 
 if (!supportedLanes.includes(requestedLane as (typeof supportedLanes)[number])) {
@@ -65,6 +65,30 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
+      },
+    },
+    {
+      name: "firefox-desktop",
+      grep: /@browser-smoke/,
+      grepInvert: /@real-api/,
+      use: {
+        ...devices["Desktop Firefox"],
+      },
+    },
+    {
+      name: "webkit-desktop",
+      grep: /@browser-smoke/,
+      grepInvert: /@real-api/,
+      use: {
+        ...devices["Desktop Safari"],
+      },
+    },
+    {
+      name: "pixel-7",
+      grep: /@browser-smoke/,
+      grepInvert: /@real-api/,
+      use: {
+        ...devices["Pixel 7"],
       },
     },
   ],

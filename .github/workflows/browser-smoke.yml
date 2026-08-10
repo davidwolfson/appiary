@@ -1,0 +1,72 @@
+name: Browser smoke
+
+on:
+  schedule:
+    - cron: "17 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    name: Firefox, WebKit, and mobile smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: appiary_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d appiary_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: appiary_test
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: ci-test-secret
+      PORT: 3000
+      CLIENT_ORIGIN: http://localhost:4200
+      PLAYWRIGHT_LANE: browser-smoke
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install browser engines
+        run: npx playwright install chromium firefox webkit --with-deps
+
+      - name: Run browser smoke specs
+        run: npm run test:e2e:browser-smoke
+
+      - name: Upload browser smoke results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-browser-smoke-test-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            packages/e2e/playwright-report/browser-smoke/**
+            packages/e2e/test-results/browser-smoke/**
+          if-no-files-found: warn
+          retention-days: 14

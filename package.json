@@ -20,6 +20,7 @@
     "test:e2e": "npm run test -w @appiary/e2e",
     "test:e2e:mocked": "npm run test:mocked -w @appiary/e2e",
     "test:e2e:real": "npm run test:real -w @appiary/e2e",
+    "test:e2e:browser-smoke": "npm run test:browser-smoke -w @appiary/e2e",
     "test:e2e:headed": "npm run test:headed -w @appiary/e2e",
     "test:e2e:ui": "npm run test:ui -w @appiary/e2e",
     "test:e2e:install": "npm run install:browsers -w @appiary/e2e",

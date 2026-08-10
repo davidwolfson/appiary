@@ -744,7 +744,7 @@ test.describe("hives dashboard", () => {
     }
   });
 
-  test("renders inspection summaries and opens history read-only with row focus restoration", async ({ page }) => {
+  test("renders inspection summaries and opens history read-only with row focus restoration @browser-smoke", async ({ page }) => {
     const dashboardPage = createHivesDashboardPage(page);
     const inspection = createInspection({ cappedBrood: true });
 
