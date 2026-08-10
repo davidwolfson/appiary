@@ -11,6 +11,7 @@ npm run test:e2e:real
 npm run test:e2e:headed
 npm run test:e2e:ui
 npm run test:e2e:install
+npm run typecheck:e2e
 ```
 
 ## Scope
@@ -31,3 +32,11 @@ The Playwright config starts its own API through the root workspace script with 
 Real tests generate unique data and clean up only recorded account UUIDs, relying on foreign-key cascades for users, hives, and inspections. They never truncate tables. The application intentionally keeps authentication in memory, so the lifecycle smoke test expects a browser reload to return to login before persisted data is loaded with a new token.
 
 Port 3000 must be free so Playwright can own the controlled API process. It may reuse an existing frontend locally, but it never attaches to an already-running API whose database configuration it cannot verify.
+
+## Reports and CI artifacts
+
+Set `PLAYWRIGHT_LANE` to `mocked` or `real` when reproducing a CI lane. If it is omitted, local aggregate runs use `all`; any other value is rejected. Each lane writes an HTML report to `playwright-report/<lane>/`, JUnit to `test-results/<lane>/junit.xml`, and traces/screenshots/videos to `test-results/<lane>/artifacts/` when the configured retry or failure policy produces them.
+
+GitHub Actions uploads mocked and real results immediately after their respective runs. Artifacts are named `e2e-mocked-test-results-<run>-<attempt>` and `e2e-real-test-results-<run>-<attempt>` and are retained for 14 days. Download and extract the complete HTML directory before opening `index.html`; open a trace with `npx playwright show-trace <trace.zip>`.
+
+The mocked lane is parallel Chromium coverage for deterministic UI behavior. The real lane is a single-worker Chromium smoke suite because it shares PostgreSQL state. Axe scanning and selective Firefox, WebKit, and mobile smoke projects are intentionally deferred.

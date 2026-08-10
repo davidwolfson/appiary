@@ -85,12 +85,16 @@ On startup, the API applies pending migrations from `packages/api/db/migrations`
 | `npm run build` | Build the shared types, API, and frontend. |
 | `npm run dev:api` | Start the API with file watching. |
 | `npm run dev:web` | Start the Angular development server. |
+| `npm run lint` | Lint authored TypeScript and Angular templates; warnings fail the command. |
 | `npm run test:api` | Run API tests against the dedicated `appiary_test` PostgreSQL database. |
+| `npm run test:api:ci` | Run API tests with coverage enforcement and JUnit output. |
 | `npm run test:web` | Run frontend unit tests. |
+| `npm run test:web:ci` | Run frontend tests with coverage enforcement and JUnit output. |
 | `npm run test:e2e` | Run Playwright tests; starts local API and web servers when needed. |
 | `npm run test:e2e:headed` | Run browser tests with a visible browser. |
 | `npm run test:e2e:ui` | Open the Playwright UI. |
 | `npm run test:e2e:install` | Install Playwright browsers. |
+| `npm run typecheck:e2e` | Type-check the Playwright config, helpers, pages, and specs. |
 
 ## Routes and API
 
@@ -124,3 +128,13 @@ createdb -h localhost -U postgres appiary_test
 Test runners set `NODE_ENV=test` and `DB_NAME=appiary_test` themselves. The API fails before opening a database pool or running migrations if test mode is configured with any other database name. Shell and CI connection values take precedence; Vitest supplies local defaults for values not provided, while Playwright's managed API can fill missing connection values from `.env`.
 
 The CI workflow uses a disposable PostgreSQL 16 service with the same database name and Node.js 22. Playwright uses Chromium and can install it with `npm run test:e2e:install`. It always starts its own controlled API process, so port 3000 must be free; an existing API on that port makes the E2E run fail safely.
+
+## Quality gates and CI evidence
+
+GitHub Actions runs lint, the production build, and the E2E TypeScript check as a dedicated quality job. API and web CI tests enforce global minimum coverage of 80% for statements, branches, functions, and lines. Coverage includes unimported production modules. API excludes only declarations and the side-effect-only `server.ts` process bootstrap; web excludes specs, declarations, and the provider-only `app.config.ts` application bootstrap.
+
+API and web jobs retain JUnit plus HTML, LCOV, and JSON-summary coverage for 30 days. Their artifacts are named `api-test-results-<run>-<attempt>` and `web-test-results-<run>-<attempt>`. Playwright retains separate mocked and real-API HTML/JUnit reports, along with any retry traces and failure screenshots/videos, for 14 days in `e2e-mocked-test-results-<run>-<attempt>` and `e2e-real-test-results-<run>-<attempt>`.
+
+Download evidence from the workflow run's **Artifacts** section. Open a coverage artifact's `index.html` in a browser. For Playwright, extract the entire HTML report before opening `index.html`; inspect a trace with `npx playwright show-trace <trace.zip>`. Screenshots and videos are produced only on failure, while traces are produced on the first retry, so successful runs may not contain media attachments.
+
+Pull requests use mocked Chromium coverage for deterministic UI behavior and a separate, single-worker Chromium smoke lane against the real API and PostgreSQL. Axe scans and selective Firefox, WebKit, and mobile smoke coverage remain follow-up work.

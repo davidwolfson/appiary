@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection, signal, type WritableSignal } from "@an
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { vi } from "vitest";
 
+import type { CreateHiveInspectionRequest } from "@appiary/types";
 import { AuthStore } from "../auth/auth.store";
 import { HivesDashboardComponent } from "./hives-dashboard.component";
 import { HivesStore } from "./hives.store";
@@ -590,8 +591,12 @@ describe("HivesDashboardComponent", () => {
     fixture.detectChanges();
 
     // when inspection saving fails
-    const component = fixture.componentInstance as never as { saveInspection: (value: any) => Promise<void> };
-    await component.saveInspection({});
+    const payload: CreateHiveInspectionRequest = {
+      inspectionDate: "2026-07-31", inspectionTime: "10:30", queenRight: true,
+      eggs: true, larva: false, cappedBrood: true, broodPattern: null, additionalNotes: null,
+    };
+    const component = fixture.componentInstance as never as { saveInspection: (value: CreateHiveInspectionRequest) => Promise<void> };
+    await component.saveInspection(payload);
     inspectionErrorState.set("Could not save inspection");
     fixture.detectChanges();
 

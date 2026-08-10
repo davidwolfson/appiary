@@ -8,7 +8,8 @@
     "test:real": "playwright test --grep @real-api --workers=1",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
-    "install:browsers": "playwright install"
+    "install:browsers": "playwright install",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.0",

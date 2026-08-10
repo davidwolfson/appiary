@@ -14,11 +14,29 @@ const rootEnvironment = config({
 const apiEnvironment = resolveRealApiEnvironment(process.env, rootEnvironment);
 Object.assign(process.env, apiEnvironment);
 
+const supportedLanes = ["all", "mocked", "real"] as const;
+const requestedLane = process.env.PLAYWRIGHT_LANE ?? "all";
+
+if (!supportedLanes.includes(requestedLane as (typeof supportedLanes)[number])) {
+  throw new Error(
+    `PLAYWRIGHT_LANE must be one of ${supportedLanes.join(", ")}; received "${requestedLane}".`,
+  );
+}
+
+const lane = requestedLane as (typeof supportedLanes)[number];
+const reportDirectory = `playwright-report/${lane}`;
+const resultDirectory = `test-results/${lane}`;
+
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? [["github"], ["html"]] : [["list"], ["html"]],
+  reporter: [
+    [process.env.CI ? "github" : "list"],
+    ["html", { outputFolder: reportDirectory, open: "never" }],
+    ["junit", { outputFile: `${resultDirectory}/junit.xml` }],
+  ],
+  outputDir: `${resultDirectory}/artifacts`,
   use: {
     baseURL,
     trace: "on-first-retry",

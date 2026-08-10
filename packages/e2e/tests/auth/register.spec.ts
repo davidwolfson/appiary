@@ -4,6 +4,7 @@ import type { RegisterRequest } from "@appiary/types";
 
 import { createAuthResponse, createAuthenticatedUser, mockRegisterRequest, visitAsAuthenticatedUser } from "../../helpers/auth";
 import { mockListHivesRequest } from "../../helpers/hives";
+import { expectNoRequests } from "../../helpers/requests";
 import { routes } from "../../helpers/routes";
 import { createRegistrationInput } from "../../helpers/test-data";
 import { createHomePage } from "../../pages/home-page";
@@ -50,11 +51,11 @@ test.describe("register", () => {
     await registerPage.submit();
 
     // then the register request should not be sent and the form should be touched
-    expect(requests).toHaveLength(0);
     await expect(registerPage.accountNameInput).toHaveClass(/ng-touched/);
     await expect(registerPage.emailInput).toHaveClass(/ng-touched/);
     await expect(registerPage.passwordInput).toHaveClass(/ng-touched/);
     await expect(registerPage.confirmPasswordInput).toHaveClass(/ng-touched/);
+    await expectNoRequests(requests);
     await expect(page).toHaveURL(new RegExp(`${routes.register}$`));
   });
 
@@ -77,7 +78,8 @@ test.describe("register", () => {
     await registerPage.submit();
 
     // then the register request should not be sent and I should remain on /register
-    expect(requests).toHaveLength(0);
+    await expect(registerPage.emailInput).toHaveClass(/ng-invalid/);
+    await expectNoRequests(requests);
     await expect(page).toHaveURL(new RegExp(`${routes.register}$`));
   });
 
@@ -101,7 +103,8 @@ test.describe("register", () => {
     await registerPage.submit();
 
     // then the register request should not be sent and I should remain on /register
-    expect(requests).toHaveLength(0);
+    await expect(registerPage.accountNameInput).toHaveClass(/ng-invalid/);
+    await expectNoRequests(requests);
     await expect(page).toHaveURL(new RegExp(`${routes.register}$`));
   });
 
@@ -125,7 +128,8 @@ test.describe("register", () => {
     await registerPage.submit();
 
     // then the register request should not be sent and I should remain on /register
-    expect(requests).toHaveLength(0);
+    await expect(registerPage.passwordInput).toHaveClass(/ng-invalid/);
+    await expectNoRequests(requests);
     await expect(page).toHaveURL(new RegExp(`${routes.register}$`));
   });
 
@@ -146,8 +150,8 @@ test.describe("register", () => {
     await registerPage.submit();
 
     // then the register request should not be sent, a warning should be shown, and I should remain on /register
-    expect(requests).toHaveLength(0);
     await expect(registerPage.passwordMismatchMessage).toBeVisible();
+    await expectNoRequests(requests);
     await expect(page).toHaveURL(new RegExp(`${routes.register}$`));
   });
 
