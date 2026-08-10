@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection, signal, type WritableSignal } from "@an
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { vi } from "vitest";
 
+import type { CreateHiveInspectionRequest } from "@appiary/types";
 import { AuthStore } from "../auth/auth.store";
 import { HivesDashboardComponent } from "./hives-dashboard.component";
 import { HivesStore } from "./hives.store";
@@ -30,7 +31,11 @@ describe("HivesDashboardComponent", () => {
     isUpdating: ReturnType<typeof vi.fn>;
     isSavingInspection: ReturnType<typeof vi.fn>;
     inspectionError: ReturnType<typeof vi.fn>;
+    inspectionPaginationFailure: ReturnType<typeof vi.fn>;
+    isLoadingInspectionPage: ReturnType<typeof vi.fn>;
+    loadInspectionPage: ReturnType<typeof vi.fn>;
     loadHives: ReturnType<typeof vi.fn>;
+    retryInspectionPage: ReturnType<typeof vi.fn>;
     updateError: ReturnType<typeof vi.fn>;
     updateHive: ReturnType<typeof vi.fn>;
     createInspection: ReturnType<typeof vi.fn>;
@@ -56,7 +61,11 @@ describe("HivesDashboardComponent", () => {
       isUpdating: vi.fn(() => false),
       isSavingInspection: vi.fn(() => false),
       inspectionError: vi.fn(() => inspectionErrorState()),
+      inspectionPaginationFailure: vi.fn(() => null),
+      isLoadingInspectionPage: vi.fn(() => false),
+      loadInspectionPage: vi.fn().mockResolvedValue(undefined),
       loadHives: vi.fn().mockResolvedValue(undefined),
+      retryInspectionPage: vi.fn().mockResolvedValue(undefined),
       updateError: vi.fn(() => null),
       updateHive: vi.fn().mockResolvedValue(undefined),
       createInspection: vi.fn().mockResolvedValue(undefined),
@@ -169,6 +178,34 @@ describe("HivesDashboardComponent", () => {
     // then both cards are visible
     expect(fixture.nativeElement.querySelector("[data-testid='hive-card-hive-1']")).not.toBeNull();
     expect(fixture.nativeElement.querySelector("[data-testid='hive-card-hive-2']")).not.toBeNull();
+  });
+
+  it("binds pagination state and retry to only the affected hive card", () => {
+    // given two active hives have independent pagination state
+    const inspection = { inspectionId: "inspection-1", hiveId: "hive-1", inspectionDate: "2026-07-30", inspectionTime: "09:15", queenRight: true, eggs: true, larva: true, cappedBrood: true, broodPattern: null, additionalNotes: null };
+    hivesState.set([
+      { hiveId: "hive-1", name: "North Field", status: true, inspections: [inspection], inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 } },
+      { hiveId: "hive-2", name: "South Field", status: true, inspections: [{ ...inspection, inspectionId: "inspection-2", hiveId: "hive-2" }], inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 } },
+    ]);
+    hasHivesState.set(true);
+    hivesStore.isLoadingInspectionPage.mockImplementation((hiveId: string) => hiveId === "hive-2");
+    hivesStore.inspectionPaginationFailure.mockImplementation((hiveId: string) => hiveId === "hive-1"
+      ? { message: "Could not load North inspections", page: 2 }
+      : null);
+
+    // when the dashboard renders and the affected card requests a retry
+    fixture.detectChanges();
+    const firstCard = fixture.nativeElement.querySelector("[data-testid='hive-card-hive-1']") as HTMLElement;
+    const secondCard = fixture.nativeElement.querySelector("[data-testid='hive-card-hive-2']") as HTMLElement;
+    (firstCard.querySelector("button[aria-label='Retry inspections for hive card 1']") as HTMLButtonElement).click();
+
+    // then error and loading stay on their own cards and retry delegates its own hive ID
+    expect(firstCard.querySelector("[role='alert']")?.textContent).toContain("Could not load North inspections");
+    expect(secondCard.querySelector("[role='alert']")).toBeNull();
+    expect((firstCard.querySelector("button[aria-label='Next inspections for hive card 1']") as HTMLButtonElement).disabled).toBe(false);
+    expect((secondCard.querySelector("button[aria-label='Next inspections for hive card 2']") as HTMLButtonElement).disabled).toBe(true);
+    expect(hivesStore.retryInspectionPage).toHaveBeenCalledOnce();
+    expect(hivesStore.retryInspectionPage).toHaveBeenCalledWith("hive-1");
   });
 
   it("shows only inactive hives when Inactive is selected", () => {
@@ -554,8 +591,12 @@ describe("HivesDashboardComponent", () => {
     fixture.detectChanges();
 
     // when inspection saving fails
-    const component = fixture.componentInstance as never as { saveInspection: (value: any) => Promise<void> };
-    await component.saveInspection({});
+    const payload: CreateHiveInspectionRequest = {
+      inspectionDate: "2026-07-31", inspectionTime: "10:30", queenRight: true,
+      eggs: true, larva: false, cappedBrood: true, broodPattern: null, additionalNotes: null,
+    };
+    const component = fixture.componentInstance as never as { saveInspection: (value: CreateHiveInspectionRequest) => Promise<void> };
+    await component.saveInspection(payload);
     inspectionErrorState.set("Could not save inspection");
     fixture.detectChanges();
 

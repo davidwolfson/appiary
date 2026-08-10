@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from "@angular/core";
 import { ComponentFixture, TestBed } from "@angular/core/testing";
+import type { FormGroup } from "@angular/forms";
 
 import { HiveInspectionModalComponent } from "./hive-inspection-modal.component";
 
@@ -17,7 +18,7 @@ describe("HiveInspectionModalComponent", () => {
     // given the create modal contains inspection details with blank notes
     const emitted: unknown[] = [];
     fixture.componentInstance.save.subscribe((value) => emitted.push(value));
-    const form = (fixture.componentInstance as any).form;
+    const form = (fixture.componentInstance as unknown as { form: FormGroup }).form;
     form.patchValue({ queenRight: true, eggs: true, broodPattern: "good", additionalNotes: "   " });
 
     // when the inspection is submitted
@@ -57,7 +58,7 @@ describe("HiveInspectionModalComponent", () => {
     // given the required date and time are empty
     const emitted: unknown[] = [];
     fixture.componentInstance.save.subscribe((value) => emitted.push(value));
-    const form = (fixture.componentInstance as any).form;
+    const form = (fixture.componentInstance as unknown as { form: FormGroup }).form;
     form.patchValue({ inspectionDate: "", inspectionTime: "" });
 
     // when the invalid inspection is submitted

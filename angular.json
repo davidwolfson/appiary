@@ -39,6 +39,42 @@
           "options": {
             "buildTarget": "web:build",
             "tsConfig": "packages/web/tsconfig.spec.json"
+          },
+          "configurations": {
+            "ci": {
+              "watch": false,
+              "coverage": true,
+              "coverageInclude": [
+                "packages/web/src/app/**/*.ts"
+              ],
+              "coverageExclude": [
+                "packages/web/src/app/**/*.spec.ts",
+                "packages/web/src/app/**/*.d.ts",
+                "packages/web/src/app/core/config/app.config.ts"
+              ],
+              "coverageReporters": [
+                "text-summary",
+                "html",
+                "lcov",
+                "json-summary"
+              ],
+              "coverageThresholds": {
+                "perFile": false,
+                "statements": 80,
+                "branches": 80,
+                "functions": 80,
+                "lines": 80
+              },
+              "reporters": [
+                "default",
+                [
+                  "junit",
+                  {
+                    "outputFile": "test-results/web/junit.xml"
+                  }
+                ]
+              ]
+            }
           }
         }
       }

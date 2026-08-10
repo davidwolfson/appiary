@@ -14,17 +14,44 @@ interface UserWithAccountRow extends UserRow {
   account_name: string;
 }
 
+const POSTGRES_UNIQUE_VIOLATION_CODE = "23505";
+const USER_EMAIL_UNIQUE_CONSTRAINT = "users_email_key";
+
+function isDuplicateUserEmailViolation(error: unknown): boolean {
+  return typeof error === "object"
+    && error !== null
+    && "code" in error
+    && "constraint" in error
+    && (error as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION_CODE
+    && (error as { constraint?: string }).constraint === USER_EMAIL_UNIQUE_CONSTRAINT;
+}
+
+export class DuplicateUserEmailError extends Error {
+  constructor() {
+    super("Duplicate user email");
+    this.name = "DuplicateUserEmailError";
+  }
+}
+
 export class UserRepository {
   async create(input: { accountId: string; email: string; passwordHash: string }, client?: Queryable): Promise<UserModel> {
     const executor = client ?? database;
-    const result = await executor.query<UserRow>(
-      `INSERT INTO users (account_id, email, password_hash)
-       VALUES ($1, $2, $3)
-       RETURNING id, account_id, email, password_hash, created_at, updated_at`,
-      [input.accountId, input.email, input.passwordHash],
-    );
+    try {
+      const result = await executor.query<UserRow>(
+        `INSERT INTO users (account_id, email, password_hash)
+         VALUES ($1, $2, $3)
+         RETURNING id, account_id, email, password_hash, created_at, updated_at`,
+        [input.accountId, input.email, input.passwordHash],
+      );
 
-    return this.mapUser(result.rows[0]);
+      return this.mapUser(result.rows[0]);
+    } catch (error) {
+      if (isDuplicateUserEmailViolation(error)) {
+        throw new DuplicateUserEmailError();
+      }
+
+      throw error;
+    }
   }
 
   async findByEmail(email: string): Promise<UserWithAccountModel | null> {

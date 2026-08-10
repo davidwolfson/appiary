@@ -4,7 +4,7 @@ import type { AuthenticatedUser } from "@appiary/types";
 
 import { AccountRepository } from "../repositories/account.repository.js";
 import { RevokedTokenRepository } from "../repositories/revoked-token.repository.js";
-import { UserRepository } from "../repositories/user.repository.js";
+import { DuplicateUserEmailError, UserRepository } from "../repositories/user.repository.js";
 import type { AuthResult, LoginAction, LogoutAction, RegisterAction } from "../types/auth.types.js";
 import { AppError } from "../utils/app-error.js";
 import { database } from "../utils/database.js";
@@ -18,7 +18,8 @@ export class AuthService {
   ) {}
 
   async register(action: RegisterAction): Promise<AuthResult> {
-    const existingUser = await this.userRepository.findByEmail(action.email);
+    const normalizedEmail = action.email.trim().toLowerCase();
+    const existingUser = await this.userRepository.findByEmail(normalizedEmail);
 
     if (existingUser) {
       throw new AppError(409, "Email is already registered");
@@ -26,18 +27,27 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(action.password, 10);
 
-    const user = await database.withTransaction(async (client) => {
-      const account = await this.accountRepository.create(action.accountName.trim(), client);
+    let user;
+    try {
+      user = await database.withTransaction(async (client) => {
+        const account = await this.accountRepository.create(action.accountName.trim(), client);
 
-      return this.userRepository.create(
-        {
-          accountId: account.id,
-          email: action.email.trim().toLowerCase(),
-          passwordHash,
-        },
-        client,
-      );
-    });
+        return this.userRepository.create(
+          {
+            accountId: account.id,
+            email: normalizedEmail,
+            passwordHash,
+          },
+          client,
+        );
+      });
+    } catch (error) {
+      if (error instanceof DuplicateUserEmailError) {
+        throw new AppError(409, "Email is already registered");
+      }
+
+      throw error;
+    }
 
     const fullUser = await this.userRepository.findById(user.id);
 

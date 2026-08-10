@@ -12,11 +12,26 @@
     "build": "npm run build -w @appiary/types && npm run build -w @appiary/api && npm run build -w @appiary/web",
     "dev:api": "npm run dev -w @appiary/api",
     "dev:web": "npm run start -w @appiary/web",
+    "lint": "eslint . --max-warnings=0",
     "test:api": "npm run test -w @appiary/api",
+    "test:api:ci": "npm run test:ci -w @appiary/api",
     "test:web": "npm run test -w @appiary/web",
+    "test:web:ci": "npm run test:ci -w @appiary/web",
     "test:e2e": "npm run test -w @appiary/e2e",
+    "test:e2e:mocked": "npm run test:mocked -w @appiary/e2e",
+    "test:e2e:real": "npm run test:real -w @appiary/e2e",
+    "test:e2e:browser-smoke": "npm run test:browser-smoke -w @appiary/e2e",
     "test:e2e:headed": "npm run test:headed -w @appiary/e2e",
     "test:e2e:ui": "npm run test:ui -w @appiary/e2e",
-    "test:e2e:install": "npm run install:browsers -w @appiary/e2e"
+    "test:e2e:install": "npm run install:browsers -w @appiary/e2e",
+    "typecheck:e2e": "npm run typecheck -w @appiary/e2e"
+  },
+  "devDependencies": {
+    "@angular/build": "^21.2.6",
+    "@eslint/js": "^9.39.5",
+    "angular-eslint": "^21.4.0",
+    "eslint": "^9.39.5",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.66.0"
   }
 }

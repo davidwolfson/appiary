@@ -6,8 +6,10 @@ import {
   createHiveInput,
   createInspection,
   createInspectionInput,
+  fulfillInspectionPage,
   mockCreateHiveRequest,
   mockCreateInspectionRequest,
+  mockListInspectionsRequest,
   mockUpdateHiveRequest,
 } from "../../helpers/hives";
 import { expectNoRequests } from "../../helpers/requests";
@@ -551,43 +553,198 @@ test.describe("hives dashboard", () => {
     await expect(dashboardPage.additionalNotesInput).toHaveValue("Add feed");
   });
 
-  test("paginates inspection histories independently within each hive", async ({ page }) => {
+  test("requests the next inspection page without changing other hives", async ({ page }) => {
     const dashboardPage = createHivesDashboardPage(page);
     const inspections = Array.from({ length: 6 }, (_, index) => createInspection({ inspectionId: `inspection-${index}`, inspectionDate: `2026-07-${String(30 - index).padStart(2, "0")}` }));
     const otherInspections = Array.from({ length: 6 }, (_, index) => createInspection({ hiveId: "hive-other", inspectionId: `other-inspection-${index}`, inspectionDate: `2026-06-${String(30 - index).padStart(2, "0")}` }));
+    const { requests } = await mockListInspectionsRequest(page, async (route) => {
+      await fulfillInspectionPage(route, {
+        inspections: inspections.slice(5),
+        pagination: { page: 2, pageSize: 5, totalItems: 6, totalPages: 2 },
+      });
+    });
 
-    // given two hives have six inspections and another has none
+    // given two hives expose production-shaped first inspection pages and another has none
     await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [
-      createHive({ inspections }),
-      createHive({ hiveId: "hive-other", name: "Other", inspections: otherInspections }),
-      createHive({ hiveId: "hive-empty", name: "Empty", inspections: [] }),
+      createHive({ inspections: inspections.slice(0, 5), inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 } }),
+      createHive({ hiveId: "hive-other", name: "Other", inspections: otherInspections.slice(0, 5), inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 } }),
+      createHive({ hiveId: "hive-empty", name: "Empty", inspections: [], inspectionPagination: { page: 1, pageSize: 5, totalItems: 0, totalPages: 0 } }),
     ]);
-
-    // when I open the dashboard and advance only the first hive
     await dashboardPage.goto();
     await expect(dashboardPage.previousInspectionsButton("hive-123")).toBeDisabled();
     await expect(dashboardPage.nextInspectionsButton("hive-123")).toBeEnabled();
+
+    // when I advance only the first hive
     await dashboardPage.showNextInspections("hive-123");
 
-    // then its older entry and boundary state appear without changing the other hive
+    // then the exact page is requested and only that hive is replaced by the server response
     await expect(dashboardPage.inspectionRow("hive-123", "2026-07-25")).toBeVisible();
+    expect(requests).toEqual([{ hiveId: "hive-123", page: 2 }]);
     await expect(dashboardPage.previousInspectionsButton("hive-123")).toBeEnabled();
     await expect(dashboardPage.nextInspectionsButton("hive-123")).toBeDisabled();
     await expect(dashboardPage.inspectionRow("hive-other", "2026-06-30")).toBeVisible();
     await expect(dashboardPage.inspectionRow("hive-other", "2026-06-25")).toHaveCount(0);
     await expect(dashboardPage.hiveCard("hive-empty").getByRole("table")).toHaveCount(0);
     await expect(dashboardPage.previousInspectionsButton("hive-empty")).toHaveCount(0);
-
-    // when I return to the first page
-    await dashboardPage.showPreviousInspections("hive-123");
-
-    // then the newest five and initial boundary state return
-    await expect(dashboardPage.hiveCard("hive-123").getByRole("row", { name: /^View inspection from / })).toHaveCount(5);
-    await expect(dashboardPage.inspectionRow("hive-123", "2026-07-25")).toHaveCount(0);
-    await expect(dashboardPage.previousInspectionsButton("hive-123")).toBeDisabled();
   });
 
-  test("renders inspection summaries and opens history read-only with row focus restoration", async ({ page }) => {
+  test("requests the previous inspection page from a server-provided second page", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const inspections = Array.from({ length: 6 }, (_, index) => createInspection({ inspectionId: `inspection-${index}`, inspectionDate: `2026-07-${String(30 - index).padStart(2, "0")}` }));
+    const { requests } = await mockListInspectionsRequest(page, async (route) => {
+      await fulfillInspectionPage(route, {
+        inspections: inspections.slice(0, 5),
+        pagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 },
+      });
+    });
+
+    // given a hive is displaying its production-shaped second inspection page
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [
+      createHive({ inspections: inspections.slice(5), inspectionPagination: { page: 2, pageSize: 5, totalItems: 6, totalPages: 2 } }),
+    ]);
+    await dashboardPage.goto();
+    await expect(dashboardPage.inspectionRow("hive-123", "2026-07-25")).toBeVisible();
+
+    // when I request the previous page
+    await dashboardPage.showPreviousInspections("hive-123");
+
+    // then the first page response and its boundary state replace the second page
+    await expect(dashboardPage.hiveCard("hive-123").getByRole("row", { name: /^View inspection from / })).toHaveCount(5);
+    expect(requests).toEqual([{ hiveId: "hive-123", page: 1 }]);
+    await expect(dashboardPage.inspectionRow("hive-123", "2026-07-25")).toHaveCount(0);
+    await expect(dashboardPage.previousInspectionsButton("hive-123")).toBeDisabled();
+    await expect(dashboardPage.nextInspectionsButton("hive-123")).toBeEnabled();
+  });
+
+  test("shows pagination failures only on the affected hive and preserves its page", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const inspections = Array.from({ length: 6 }, (_, index) => createInspection({ inspectionId: `inspection-${index}`, inspectionDate: `2026-07-${String(30 - index).padStart(2, "0")}` }));
+    const otherInspection = createInspection({ hiveId: "hive-other", inspectionId: "other-inspection", inspectionDate: "2026-06-30" });
+    const { requests } = await mockListInspectionsRequest(page, async (route) => {
+      await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Could not load inspections" }) });
+    });
+
+    // given two hives display independent first inspection pages
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [
+      createHive({ inspections: inspections.slice(0, 5), inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 } }),
+      createHive({ hiveId: "hive-other", name: "Other", inspections: [otherInspection], inspectionPagination: { page: 1, pageSize: 5, totalItems: 1, totalPages: 1 } }),
+    ]);
+    await dashboardPage.goto();
+
+    // when the first hive's second page request fails
+    await dashboardPage.showNextInspections("hive-123");
+
+    // then only its card announces the failure and both cards retain their current content
+    await expect(dashboardPage.inspectionPaginationAlert("hive-123")).toHaveText(/Could not load inspections/);
+    await expect(dashboardPage.retryInspectionsButton("hive-123")).toBeEnabled();
+    await expect(dashboardPage.inspectionRow("hive-123", "2026-07-30")).toBeVisible();
+    await expect(dashboardPage.inspectionRow("hive-123", "2026-07-25")).toHaveCount(0);
+    await expect(dashboardPage.previousInspectionsButton("hive-123")).toBeDisabled();
+    await expect(dashboardPage.nextInspectionsButton("hive-123")).toBeEnabled();
+    await expect(dashboardPage.inspectionPaginationAlert("hive-other")).toHaveCount(0);
+    await expect(dashboardPage.inspectionRow("hive-other", "2026-06-30")).toBeVisible();
+    expect(requests).toEqual([{ hiveId: "hive-123", page: 2 }]);
+  });
+
+  test("retries the exact failed inspection page and updates only its hive", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const firstPageInspection = createInspection({ inspectionId: "inspection-1", inspectionDate: "2026-07-30" });
+    const secondPageInspection = createInspection({ inspectionId: "inspection-6", inspectionDate: "2026-07-25" });
+    const otherInspection = createInspection({ hiveId: "hive-other", inspectionId: "other-inspection", inspectionDate: "2026-06-30" });
+    let attempt = 0;
+    const { requests } = await mockListInspectionsRequest(page, async (route) => {
+      attempt += 1;
+      if (attempt === 1) {
+        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Could not load inspections" }) });
+        return;
+      }
+      await fulfillInspectionPage(route, {
+        inspections: [secondPageInspection],
+        pagination: { page: 2, pageSize: 5, totalItems: 6, totalPages: 2 },
+      });
+    });
+
+    // given page two failed for one hive and its retry is visible
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [
+      createHive({ inspections: [firstPageInspection], inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 } }),
+      createHive({ hiveId: "hive-other", name: "Other", inspections: [otherInspection], inspectionPagination: { page: 1, pageSize: 5, totalItems: 1, totalPages: 1 } }),
+    ]);
+    await dashboardPage.goto();
+    await dashboardPage.showNextInspections("hive-123");
+    await expect(dashboardPage.inspectionPaginationAlert("hive-123")).toBeVisible();
+
+    // when I retry the failed request
+    await dashboardPage.retryInspectionsButton("hive-123").click();
+
+    // then page two is requested again, only the target page changes, and its alert clears
+    await expect(dashboardPage.inspectionRow("hive-123", "2026-07-25")).toBeVisible();
+    await expect(dashboardPage.inspectionPaginationAlert("hive-123")).toHaveCount(0);
+    await expect(dashboardPage.inspectionRow("hive-other", "2026-06-30")).toBeVisible();
+    expect(requests).toEqual([
+      { hiveId: "hive-123", page: 2 },
+      { hiveId: "hive-123", page: 2 },
+    ]);
+  });
+
+  test("settles concurrent hive pagination independently in reverse order", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const firstPageInspection = createInspection({ inspectionId: "inspection-1", inspectionDate: "2026-07-30" });
+    const secondHiveFirstPage = createInspection({ hiveId: "hive-other", inspectionId: "other-inspection-1", inspectionDate: "2026-06-30" });
+    const firstHiveSecondPage = createInspection({ inspectionId: "inspection-6", inspectionDate: "2026-07-25" });
+    const secondHiveSecondPage = createInspection({ hiveId: "hive-other", inspectionId: "other-inspection-6", inspectionDate: "2026-06-25" });
+    let releaseFirst!: () => void;
+    let releaseSecond!: () => void;
+    const firstPending = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const secondPending = new Promise<void>((resolve) => { releaseSecond = resolve; });
+    const { requests } = await mockListInspectionsRequest(page, async (route, hiveId) => {
+      await (hiveId === "hive-123" ? firstPending : secondPending);
+      await fulfillInspectionPage(route, {
+        inspections: [hiveId === "hive-123" ? firstHiveSecondPage : secondHiveSecondPage],
+        pagination: { page: 2, pageSize: 5, totalItems: 6, totalPages: 2 },
+      });
+    });
+
+    // given two hives can request their second pages independently
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [
+      createHive({ inspections: [firstPageInspection], inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 } }),
+      createHive({ hiveId: "hive-other", name: "Other", inspections: [secondHiveFirstPage], inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 } }),
+    ]);
+    await dashboardPage.goto();
+
+    try {
+      // when both requests start and the second hive is released first
+      await dashboardPage.showNextInspections("hive-123");
+      await dashboardPage.showNextInspections("hive-other");
+      await expect.poll(() => requests.length).toBe(2);
+      releaseSecond();
+      await expect(dashboardPage.inspectionRow("hive-other", "2026-06-25")).toBeVisible();
+      const reverseSettlementState = {
+        firstHiveStillShowsPageOne: await dashboardPage.inspectionRow("hive-123", "2026-07-30").isVisible(),
+        firstHiveDisabled: await dashboardPage.nextInspectionsButton("hive-123").isDisabled(),
+        secondHiveShowsPageTwo: await dashboardPage.inspectionRow("hive-other", "2026-06-25").isVisible(),
+        secondHiveAtBoundary: await dashboardPage.nextInspectionsButton("hive-other").isDisabled(),
+      };
+      releaseFirst();
+      await expect(dashboardPage.inspectionRow("hive-123", "2026-07-25")).toBeVisible();
+
+      // then the reverse settlement preserved the pending hive until its own response completed
+      expect(reverseSettlementState).toEqual({
+        firstHiveStillShowsPageOne: true,
+        firstHiveDisabled: true,
+        secondHiveShowsPageTwo: true,
+        secondHiveAtBoundary: true,
+      });
+      expect(requests).toEqual([
+        { hiveId: "hive-123", page: 2 },
+        { hiveId: "hive-other", page: 2 },
+      ]);
+    } finally {
+      releaseFirst();
+      releaseSecond();
+    }
+  });
+
+  test("renders inspection summaries and opens history read-only with row focus restoration @browser-smoke", async ({ page }) => {
     const dashboardPage = createHivesDashboardPage(page);
     const inspection = createInspection({ cappedBrood: true });
 

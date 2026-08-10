@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
 import { z } from "zod";
 
+import { assertSafeTestDatabase } from "./test-database-safety.js";
+
 function findEnvPath(): string | undefined {
   const searchRoots = [
     process.cwd(),
@@ -32,12 +34,8 @@ function findEnvPath(): string | undefined {
   return undefined;
 }
 
-config({
-  path: findEnvPath(),
-  override: true,
-});
-
 const EnvSchema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   DB_HOST: z.string().min(1),
   DB_PORT: z.coerce.number().int().positive().default(5432),
   DB_NAME: z.string().min(1),
@@ -48,4 +46,25 @@ const EnvSchema = z.object({
   CLIENT_ORIGIN: z.string().url().default("http://localhost:4200"),
 });
 
-export const env = EnvSchema.parse(process.env);
+export function parseEnvironment(environment: NodeJS.ProcessEnv) {
+  if (environment.NODE_ENV === "test") {
+    assertSafeTestDatabase(environment.DB_NAME);
+  }
+
+  return EnvSchema.parse(environment);
+}
+
+export function loadEnvironment(
+  environment: NodeJS.ProcessEnv = process.env,
+  envPath: string | undefined = findEnvPath(),
+) {
+  config({
+    path: envPath,
+    override: false,
+    processEnv: environment as Record<string, string>,
+  });
+
+  return parseEnvironment(environment);
+}
+
+export const env = loadEnvironment();

@@ -23,6 +23,7 @@ vi.mock("../../../src/utils/jwt.js", () => ({
 }));
 
 import { AuthService } from "../../../src/services/auth.service.js";
+import { DuplicateUserEmailError } from "../../../src/repositories/user.repository.js";
 import { AppError } from "../../../src/utils/app-error.js";
 
 describe("AuthService", () => {
@@ -84,6 +85,7 @@ describe("AuthService", () => {
     });
 
     // then the transaction uses normalized values and returns a signed auth result
+    expect(userRepository.findByEmail).toHaveBeenCalledWith("user@example.com");
     expect(hashMock).toHaveBeenCalledWith("password123", 10);
     expect(accountRepository.create).toHaveBeenCalledWith("Acme", client);
     expect(userRepository.create).toHaveBeenCalledWith({
@@ -104,10 +106,34 @@ describe("AuthService", () => {
   });
 
   it("rejects registration when the email already exists", async () => {
-    // given a user already owns the requested email
+    // given a user already owns the normalized requested email
     const service = createService();
 
     userRepository.findByEmail.mockResolvedValue({ id: "user-1" });
+
+    // when registration is attempted
+    const result = service.register({
+      accountName: "Acme",
+      email: "  User@Example.com  ",
+      password: "password123",
+    });
+
+    // then registration fails with an email conflict
+    await expect(result).rejects.toEqual(new AppError(409, "Email is already registered"));
+    expect(userRepository.findByEmail).toHaveBeenCalledWith("user@example.com");
+    expect(hashMock).not.toHaveBeenCalled();
+    expect(withTransactionMock).not.toHaveBeenCalled();
+    expect(accountRepository.create).not.toHaveBeenCalled();
+    expect(userRepository.create).not.toHaveBeenCalled();
+  });
+
+  it("maps a concurrent duplicate email to a conflict", async () => {
+    // given the precheck passes but the transactional insert loses an email race
+    const service = createService();
+
+    userRepository.findByEmail.mockResolvedValue(null);
+    hashMock.mockResolvedValue("hashed-password");
+    withTransactionMock.mockRejectedValue(new DuplicateUserEmailError());
 
     // when registration is attempted
     const result = service.register({
@@ -116,8 +142,30 @@ describe("AuthService", () => {
       password: "password123",
     });
 
-    // then registration fails with an email conflict
+    // then the persistence conflict is exposed without post-create work
     await expect(result).rejects.toEqual(new AppError(409, "Email is already registered"));
+    expect(userRepository.findById).not.toHaveBeenCalled();
+    expect(signAuthTokenMock).not.toHaveBeenCalled();
+  });
+
+  it("preserves unrelated registration failures", async () => {
+    // given the transaction fails for a reason unrelated to duplicate email
+    const service = createService();
+    const databaseError = new Error("database unavailable");
+
+    userRepository.findByEmail.mockResolvedValue(null);
+    hashMock.mockResolvedValue("hashed-password");
+    withTransactionMock.mockRejectedValue(databaseError);
+
+    // when registration is attempted
+    const result = service.register({
+      accountName: "Acme",
+      email: "user@example.com",
+      password: "password123",
+    });
+
+    // then the original failure is preserved
+    await expect(result).rejects.toBe(databaseError);
   });
 
   it("throws when the registered user cannot be loaded after creation", async () => {

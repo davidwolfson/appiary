@@ -8,6 +8,33 @@ permissions:
   contents: read
 
 jobs:
+  quality:
+    name: Quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint authored code and templates
+        run: npm run lint
+
+      - name: Build production packages
+        run: npm run build
+
+      - name: Type-check E2E code
+        run: npm run typecheck:e2e
+
   api:
     name: API specs
     runs-on: ubuntu-latest
@@ -29,6 +56,7 @@ jobs:
           --health-retries 5
 
     env:
+      NODE_ENV: test
       DB_HOST: localhost
       DB_PORT: 5432
       DB_NAME: appiary_test
@@ -52,7 +80,18 @@ jobs:
         run: npm ci
 
       - name: Run API specs
-        run: npm run test:api
+        run: npm run test:api:ci
+
+      - name: Upload API test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            coverage/api/**
+            test-results/api/junit.xml
+          if-no-files-found: warn
+          retention-days: 30
 
   web:
     name: Web specs
@@ -73,7 +112,18 @@ jobs:
         run: npm ci
 
       - name: Run web specs
-        run: npm run test -w @appiary/web -- --watch=false
+        run: npm run test:web:ci
+
+      - name: Upload web test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-test-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            coverage/web/**
+            test-results/web/junit.xml
+          if-no-files-found: warn
+          retention-days: 30
 
   e2e:
     name: E2E specs
@@ -96,6 +146,7 @@ jobs:
           --health-retries 5
 
     env:
+      NODE_ENV: test
       DB_HOST: localhost
       DB_PORT: 5432
       DB_NAME: appiary_test
@@ -121,5 +172,35 @@ jobs:
       - name: Install Chromium
         run: npx playwright install chromium --with-deps
 
-      - name: Run E2E specs
-        run: npm run test:e2e
+      - name: Run mocked E2E specs
+        env:
+          PLAYWRIGHT_LANE: mocked
+        run: npm run test:e2e:mocked
+
+      - name: Upload mocked E2E results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-mocked-test-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            packages/e2e/playwright-report/mocked/**
+            packages/e2e/test-results/mocked/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Run real API E2E specs
+        if: ${{ !cancelled() }}
+        env:
+          PLAYWRIGHT_LANE: real
+        run: npm run test:e2e:real
+
+      - name: Upload real API E2E results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-real-test-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            packages/e2e/playwright-report/real/**
+            packages/e2e/test-results/real/**
+          if-no-files-found: warn
+          retention-days: 14

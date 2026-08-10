@@ -36,6 +36,19 @@
       <h2 class="h5 mb-0 text-break">{{ hive.name }}</h2>
     </div>
 
+    @if (inspectionPaginationError) {
+      <div class="alert alert-danger mb-0" role="alert">
+        <p class="mb-2">{{ inspectionPaginationError }}</p>
+        <button
+          class="btn btn-outline-danger btn-sm"
+          type="button"
+          [attr.aria-label]="'Retry inspections for hive card ' + (cardIndex + 1)"
+          [disabled]="loadingInspections"
+          (click)="retryInspectionPage()"
+        >Retry</button>
+      </div>
+    }
+
     @if (inspections.length > 0) {
       <table class="table table-sm mb-0">
         <caption class="caption-top fw-semibold text-body pt-0">Inspections</caption>

@@ -4,6 +4,7 @@ import type { LoginRequest } from "@appiary/types";
 
 import { createAuthResponse, createAuthenticatedUser, mockLoginRequest, visitAsAuthenticatedUser } from "../../helpers/auth";
 import { mockListHivesRequest } from "../../helpers/hives";
+import { expectNoRequests } from "../../helpers/requests";
 import { routes } from "../../helpers/routes";
 import { createHomePage } from "../../pages/home-page";
 import { createLoginPage } from "../../pages/login-page";
@@ -90,9 +91,9 @@ test.describe("login", () => {
     await loginPage.submit();
 
     // then the login request should not be sent and the form should be touched
-    expect(requests).toHaveLength(0);
     await expect(loginPage.emailInput).toHaveClass(/ng-touched/);
     await expect(loginPage.passwordInput).toHaveClass(/ng-touched/);
+    await expectNoRequests(requests);
     await expect(page).toHaveURL(new RegExp(`${routes.login}$`));
   });
 
@@ -114,7 +115,8 @@ test.describe("login", () => {
     await loginPage.submit();
 
     // then the login request should not be sent and I should remain on /login
-    expect(requests).toHaveLength(0);
+    await expect(loginPage.emailInput).toHaveClass(/ng-invalid/);
+    await expectNoRequests(requests);
     await expect(page).toHaveURL(new RegExp(`${routes.login}$`));
   });
 

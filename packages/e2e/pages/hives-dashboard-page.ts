@@ -45,6 +45,10 @@ export function createHivesDashboardPage(page: Page) {
     hiveCard(hiveId).getByRole("button", { name: "Previous inspections" });
   const nextInspectionsButton = (hiveId: string) =>
     hiveCard(hiveId).getByRole("button", { name: "Next inspections" });
+  const inspectionPaginationAlert = (hiveId: string) =>
+    hiveCard(hiveId).getByRole("alert");
+  const retryInspectionsButton = (hiveId: string) =>
+    hiveCard(hiveId).getByRole("button", { name: "Retry inspections" });
 
   return {
     hiveControls,
@@ -72,6 +76,8 @@ export function createHivesDashboardPage(page: Page) {
     inspectionRow,
     previousInspectionsButton,
     nextInspectionsButton,
+    inspectionPaginationAlert,
+    retryInspectionsButton,
     hiveNameInput,
     statusSelect,
     hiveStatusFilter,
@@ -94,7 +100,7 @@ export function createHivesDashboardPage(page: Page) {
     async expectHiveCard(hiveId: string, name: string, status: "Active" | "Inactive"): Promise<void> {
       const card = hiveCard(hiveId);
       await expect(card.getByRole("heading", { name, exact: true })).toBeVisible();
-      await expect(card.getByText(status, { exact: true })).toBeVisible();
+      await expect(card.getByRole("img", { name: status, exact: true })).toHaveAttribute("title", status);
     },
     async selectHiveFilter(filter: "Active" | "All" | "Inactive"): Promise<void> {
       await hiveStatusFilter.selectOption({ label: filter });

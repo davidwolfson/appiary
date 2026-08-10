@@ -57,4 +57,26 @@ describe("HivesApi", () => {
     expect(request.request.body).toEqual(payload);
     request.flush({ inspection: { inspectionId: "inspection-1", hiveId: "hive-1", ...payload } });
   });
+
+  it("lists the requested inspection page with GET", () => {
+    // given a hive and inspection page are selected
+    const response = {
+      inspections: [{
+        inspectionId: "inspection-6", hiveId: "hive-1", inspectionDate: "2026-07-25",
+        inspectionTime: "09:15", queenRight: false, eggs: false, larva: false,
+        cappedBrood: false, broodPattern: null, additionalNotes: null,
+      }],
+      pagination: { page: 2, pageSize: 5, totalItems: 6, totalPages: 2 },
+    };
+
+    // when the API lists page two
+    let result: unknown;
+    api.listInspections("hive-1", 2).subscribe((value) => { result = value; });
+
+    // then the request uses the nested endpoint, exact query, and unchanged response
+    const request = http.expectOne("/api/hives/hive-1/inspections?page=2");
+    expect(request.request.method).toBe("GET");
+    request.flush(response);
+    expect(result).toEqual(response);
+  });
 });
