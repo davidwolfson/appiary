@@ -41,8 +41,8 @@
         </div>
 
         <div class="modal-footer">
-          <button class="btn btn-outline-secondary" type="button" (click)="close()" [disabled]="isSaving">Cancel</button>
-          <button class="btn btn-dark" type="submit" [disabled]="isSaving">
+          <button class="btn btn-outline-secondary" type="button" aria-label="Cancel" (click)="close()" [disabled]="isSaving">Cancel</button>
+          <button class="btn btn-dark" type="submit" [attr.aria-label]="isSaving ? 'Saving...' : 'Save Hive'" [disabled]="isSaving">
             {{ isSaving ? "Saving..." : "Save Hive" }}
           </button>
         </div>

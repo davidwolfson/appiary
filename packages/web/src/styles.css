@@ -67,6 +67,11 @@ body {
   min-width: 0;
 }
 
+app-hive-card {
+  display: block;
+  height: 100%;
+}
+
 .hive-controls-filters {
   flex: 1 1 14rem;
 }
@@ -90,7 +95,6 @@ body {
 }
 
 .edit-hive-button {
-  width: 2rem;
   height: 2rem;
   display: inline-flex;
   align-items: center;
@@ -101,4 +105,28 @@ body {
 .hive-card,
 .empty-state {
   background: var(--app-panel);
+}
+
+.hive-card {
+  min-height: 24rem;
+}
+
+.inspection-row {
+  cursor: pointer;
+}
+
+.inspection-row:hover {
+  --bs-table-bg-state: rgba(183, 101, 43, 0.08);
+}
+
+.inspection-row:focus-visible {
+  outline: 0.2rem solid var(--app-accent);
+  outline-offset: -0.2rem;
+}
+
+.inspection-row-indicator {
+  color: var(--app-accent);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
 }
