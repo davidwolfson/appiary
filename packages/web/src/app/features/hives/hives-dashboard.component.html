@@ -8,7 +8,7 @@
       </div>
 
       <div class="d-flex align-items-start gap-2">
-        <button class="btn btn-outline-dark" type="button" (click)="logout()" [disabled]="authStore.isLoading()">Logout</button>
+        <button class="btn btn-outline-dark" type="button" aria-label="Logout" (click)="logout()" [disabled]="authStore.isLoading()">Logout</button>
       </div>
     </header>
 
@@ -32,7 +32,7 @@
         </div>
 
         <div class="hive-controls-actions d-flex flex-wrap gap-2">
-          <button class="btn btn-dark add-hive-button" type="button" aria-label="Add Hive" title="Add Hive" (click)="openAddHiveModal()">
+          <button class="btn btn-dark add-hive-button" type="button" aria-label="Add Hive" (click)="openAddHiveModal()">
             <span class="add-hive-icon" aria-hidden="true">+</span>
             <span>Add Hive</span>
           </button>

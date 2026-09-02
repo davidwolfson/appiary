@@ -3,11 +3,13 @@
   [attr.data-testid]="'hive-card-' + hive.hiveId"
 >
   <div class="position-absolute top-0 end-0 m-2 d-flex gap-2">
-    <button class="btn btn-primary btn-sm" type="button" [attr.aria-label]="'Add Inspection for hive card ' + (cardIndex + 1)" title="Add Inspection" (click)="inspectHive()">
+    <button class="btn btn-primary btn-sm" type="button" [attr.aria-label]="'Add Inspection for hive card ' + (cardIndex + 1)" (click)="inspectHive()">
       <span aria-hidden="true">+</span>
+      <span>Add Inspection</span>
     </button>
-    <button class="btn btn-light btn-sm edit-hive-button" type="button" [attr.aria-label]="'Edit Hive for hive card ' + (cardIndex + 1)" title="Edit Hive" (click)="editHive()">
+    <button class="btn btn-light btn-sm edit-hive-button" type="button" [attr.aria-label]="'Edit Hive for hive card ' + (cardIndex + 1)" (click)="editHive()">
       <span aria-hidden="true">&#9998;</span>
+      <span>Edit Hive</span>
     </button>
   </div>
 
@@ -57,6 +59,7 @@
           @for (inspection of inspections; track inspection.inspectionId) {
             <tr
               #inspectionRow
+              class="inspection-row"
               tabindex="0"
               [attr.aria-label]="'View inspection from ' + formatInspectionDate(inspection.inspectionDate)"
               (click)="openInspection(inspection, inspectionRow)"
@@ -69,29 +72,34 @@
                 @if (inspectionNotes(inspection); as notes) {
                   <span role="img" [attr.aria-label]="'Additional notes: ' + notes" [attr.title]="notes">&#128221;</span>
                 }
+                <span class="inspection-row-indicator float-end" aria-hidden="true">&#8250;</span>
               </td>
             </tr>
           }
         </tbody>
       </table>
       @if (hasInspectionPagination) {
-        <nav class="d-flex justify-content-end gap-2" aria-label="Inspection history pages">
+        <nav class="d-flex justify-content-between gap-2 mt-auto" aria-label="Inspection history pages">
           <button
             class="btn btn-light btn-sm"
             type="button"
             [attr.aria-label]="'Previous inspections for hive card ' + (cardIndex + 1)"
             [disabled]="isPreviousPageDisabled"
             (click)="showPreviousInspections()"
-          ><span aria-hidden="true">&#8592;</span></button>
+          >Previous</button>
           <button
             class="btn btn-light btn-sm"
             type="button"
             [attr.aria-label]="'Next inspections for hive card ' + (cardIndex + 1)"
             [disabled]="isNextPageDisabled"
             (click)="showNextInspections()"
-          ><span aria-hidden="true">&#8594;</span></button>
+          >Next</button>
         </nav>
       }
+    } @else if (!loadingInspections && !inspectionPaginationError) {
+      <div class="empty-state border rounded-2 p-3 text-center">
+        <p class="text-secondary mb-0">No inspections to display yet.</p>
+      </div>
     }
   </div>
 </article>

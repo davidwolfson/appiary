@@ -34,7 +34,7 @@
           <div class="alert alert-warning py-2">Passwords must match.</div>
         }
 
-        <button class="btn btn-dark w-100" type="submit" [disabled]="authStore.isLoading()">
+        <button class="btn btn-dark w-100" type="submit" [attr.aria-label]="authStore.isLoading() ? 'Creating account...' : 'Create account'" [disabled]="authStore.isLoading()">
           {{ authStore.isLoading() ? 'Creating account...' : 'Create account' }}
         </button>
       </form>

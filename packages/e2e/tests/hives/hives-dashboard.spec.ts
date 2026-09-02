@@ -305,7 +305,7 @@ test.describe("hives dashboard", () => {
     await dashboardPage.selectHiveFilter("Inactive");
 
     // when I click the hive card edit button
-    await expect(dashboardPage.editHiveButton("hive-1")).toHaveAttribute("title", "Edit Hive");
+    await expect(dashboardPage.editHiveButton("hive-1")).toContainText("Edit Hive");
     await dashboardPage.openEditHiveModal("hive-1");
 
     // then I should see the Edit Hive modal populated with that hive
@@ -411,7 +411,7 @@ test.describe("hives dashboard", () => {
     });
 
     // when I open Add Inspection
-    await expect(dashboardPage.addInspectionButton("hive-123")).toHaveAttribute("title", "Add Inspection");
+    await expect(dashboardPage.addInspectionButton("hive-123")).toContainText("Add Inspection");
     await dashboardPage.openAddInspectionModal("hive-123");
     const afterOpen = await page.evaluate(() => {
       const now = new Date();

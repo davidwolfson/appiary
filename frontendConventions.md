@@ -102,6 +102,35 @@ import { FooResponse, CreateFooRequest } from '@types';
 - ALWAYS keep component templates in a separate `*.component.html` file via `templateUrl`
 - ALWAYS include a `*.component.spec.ts` test file for each component
 
+## Button Labels and Accessibility
+
+Every action button MUST render concise, visible text that describes its action. An icon MAY accompany the text, but it MUST NOT replace the text and decorative icons MUST use `aria-hidden="true"`.
+
+Every button MUST also have an explicit `aria-label`. The accessible label MUST contain the visible button text and MAY add context that distinguishes repeated actions, such as the relevant card or row. When the visible label changes to communicate state, such as `Save` becoming `Saving...`, bind the `aria-label` to the same state.
+
+Do not use a `title` attribute or tooltip as a substitute for visible button text or an accessible label.
+
+Close buttons are the sole exception to the visible-text requirement. An established icon-only close control, such as Bootstrap's `btn-close`, MAY omit visible text, but it MUST use `type="button"` and `aria-label="Close"`.
+
+```html
+<button
+  class="btn btn-primary"
+  type="button"
+  aria-label="Add Hive"
+  (click)="openAddHiveModal()"
+>
+  <span aria-hidden="true">+</span>
+  <span>Add Hive</span>
+</button>
+
+<button
+  class="btn-close"
+  type="button"
+  aria-label="Close"
+  (click)="close()"
+></button>
+```
+
 ## Extraction Rule
 
 If logic is reused OR becomes complex → move to service

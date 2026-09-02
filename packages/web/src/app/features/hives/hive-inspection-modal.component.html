@@ -15,7 +15,7 @@
       </div></fieldset>
       <label class="form-label" for="additional-notes">Additional Notes</label><textarea id="additional-notes" class="form-control" rows="4" formControlName="additionalNotes"></textarea>
     </div>
-    @if (!isReadOnly) { <div class="modal-footer"><button class="btn btn-outline-secondary" type="button" (click)="close()" [disabled]="isSaving">Cancel</button><button class="btn btn-primary" type="submit" [disabled]="isSaving">{{ isSaving ? "Saving..." : "Save" }}</button></div> }
+    @if (!isReadOnly) { <div class="modal-footer"><button class="btn btn-outline-secondary" type="button" aria-label="Cancel" (click)="close()" [disabled]="isSaving">Cancel</button><button class="btn btn-primary" type="submit" [attr.aria-label]="isSaving ? 'Saving...' : 'Save'" [disabled]="isSaving">{{ isSaving ? "Saving..." : "Save" }}</button></div> }
     </form>
   </div></div>
 </section>

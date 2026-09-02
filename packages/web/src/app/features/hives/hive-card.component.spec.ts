@@ -72,7 +72,7 @@ describe("HiveCardComponent", () => {
     expect(fixture.nativeElement.querySelector(".badge")).toBeNull();
   });
 
-  it("renders an edit button with tooltip text", () => {
+  it("renders a text-labeled edit button without a tooltip", () => {
     // given a hive is supplied to the card
     fixture.componentRef.setInput("hive", {
       hiveId: "hive-1",
@@ -83,11 +83,12 @@ describe("HiveCardComponent", () => {
     // when the card view is rendered
     fixture.detectChanges();
 
-    // then the edit affordance is exposed with the required label and title
+    // then the edit affordance is exposed with its accessible label and visible text
     const editButton = fixture.nativeElement.querySelector("button[aria-label='Edit Hive for hive card 1']") as HTMLButtonElement;
     const card = fixture.nativeElement.querySelector("article") as HTMLElement;
     expect(editButton).not.toBeNull();
-    expect(editButton.title).toBe("Edit Hive");
+    expect(editButton.textContent).toContain("Edit Hive");
+    expect(editButton.title).toBe("");
     expect(card.dataset["testid"]).toBe("hive-card-hive-1");
   });
 
@@ -145,15 +146,30 @@ describe("HiveCardComponent", () => {
     expect(emitted).toEqual([hive]);
   });
 
-  it("omits history when there are no inspections", () => {
+  it("displays an empty message when there are no inspections", () => {
     // given a hive has empty inspection history
     fixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections: [] });
 
     // when the card renders
     fixture.detectChanges();
 
-    // then no history table is displayed
+    // then no history table is displayed and the empty message is visible
     expect(fixture.nativeElement.querySelector("table")).toBeNull();
+    const emptyState = fixture.nativeElement.querySelector(".empty-state") as HTMLElement;
+    expect(emptyState.textContent).toContain("No inspections to display yet.");
+    expect(emptyState.classList).toContain("text-center");
+  });
+
+  it("hides the empty message while inspections are loading", () => {
+    // given a hive has no loaded inspections and its history is loading
+    fixture.componentRef.setInput("hive", { hiveId: "hive-1", name: "North Field", status: true, inspections: [] });
+    fixture.componentRef.setInput("loadingInspections", true);
+
+    // when the card renders
+    fixture.detectChanges();
+
+    // then no empty message is displayed before loading completes
+    expect(fixture.nativeElement.querySelector(".empty-state")).toBeNull();
   });
 
   it("renders the revised inspection table with calendar dates", () => {
@@ -434,10 +450,11 @@ describe("HiveCardComponent", () => {
     // when the card renders
     fixture.detectChanges();
 
-    // then its alert and scoped retry remain visible without a table
+    // then its alert and scoped retry remain visible without a table or empty message
     expect(fixture.nativeElement.querySelector("[role='alert']")).not.toBeNull();
     expect(fixture.nativeElement.querySelector("button[aria-label='Retry inspections for hive card 1']")).not.toBeNull();
     expect(fixture.nativeElement.querySelector("table")).toBeNull();
+    expect(fixture.nativeElement.querySelector(".empty-state")).toBeNull();
   });
 
   it("disables retry and server pagination while loading", () => {
