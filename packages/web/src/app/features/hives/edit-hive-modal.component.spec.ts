@@ -11,6 +11,7 @@ describe("EditHiveModalComponent", () => {
     form: {
       disabled: boolean;
       controls: {
+        apiaryId: { disabled: boolean; setValue: (value: string) => void };
         name: { disabled: boolean; setValue: (value: string) => void };
         status: { disabled: boolean; setValue: (value: boolean) => void };
       };
@@ -26,15 +27,43 @@ describe("EditHiveModalComponent", () => {
     fixture = TestBed.createComponent(EditHiveModalComponent);
     component = fixture.componentInstance;
     componentApi = component as never as typeof componentApi;
+    fixture.componentRef.setInput("apiaries", [
+      { apiaryId: "apiary-1", name: "Home Apiary", status: true },
+      { apiaryId: "apiary-2", name: "Orchard", status: false },
+    ]);
+    fixture.componentRef.setInput("currentApiaryId", "apiary-1");
     fixture.detectChanges();
   });
 
   it("renders required fields", () => {
     // given the hive modal is open
     // when the modal view is rendered
-    // then the name and status fields are visible
+    // then the apiary, name, and status fields are visible
+    expect(fixture.nativeElement.textContent).toContain("Apiary");
     expect(fixture.nativeElement.textContent).toContain("Hive Name");
     expect(fixture.nativeElement.textContent).toContain("Status");
+  });
+
+  it("lists active and inactive apiaries", () => {
+    // given active and inactive apiaries are available
+    // when the modal view is rendered
+    const options = Array.from(
+      (fixture.nativeElement.querySelector("#hive-apiary") as HTMLSelectElement).options,
+      (option) => option.textContent?.trim(),
+    );
+
+    // then every apiary remains available for assignment
+    expect(options).toContain("Home Apiary");
+    expect(options).toContain("Orchard (Inactive)");
+  });
+
+  it("defaults Add Hive to the dashboard apiary", () => {
+    // given add mode is opened from the Home Apiary dashboard
+    // when the modal view is rendered
+    const apiarySelect = fixture.nativeElement.querySelector("#hive-apiary") as HTMLSelectElement;
+
+    // then the dashboard apiary is selected
+    expect(apiarySelect.value).toBe("apiary-1");
   });
 
   it("moves initial focus to the name field", () => {
@@ -103,6 +132,7 @@ describe("EditHiveModalComponent", () => {
     // given a selected hive is supplied
     fixture.componentRef.setInput("hive", {
       hiveId: "hive-1",
+      apiaryId: "apiary-2",
       name: "North Field",
       status: false,
     });
@@ -112,6 +142,7 @@ describe("EditHiveModalComponent", () => {
 
     // then edit mode title and current values are visible
     expect(fixture.nativeElement.textContent).toContain("Edit Hive");
+    expect((fixture.nativeElement.querySelector("#hive-apiary") as HTMLSelectElement).value).toBe("apiary-2");
     expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).value).toBe("North Field");
     expect((fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("Inactive");
   });
@@ -153,11 +184,28 @@ describe("EditHiveModalComponent", () => {
     expect(save).not.toHaveBeenCalled();
   });
 
+  it("blocks submission without an apiary", () => {
+    // given the hive form has a name but no apiary
+    const save = vi.fn();
+    component.save.subscribe(save);
+    componentApi.form.controls.name.setValue("North Field");
+    componentApi.form.controls.apiaryId.setValue("");
+
+    // when the modal form is submitted
+    component.submit();
+    fixture.detectChanges();
+
+    // then no save event is emitted and required feedback is visible
+    expect(save).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain("Apiary is required.");
+  });
+
   it("emits trimmed name and status on valid submit", () => {
-    // given the hive form contains a padded name and inactive status
+    // given the hive form contains a padded name, reassigned apiary, and inactive status
     const save = vi.fn();
     component.save.subscribe(save);
     componentApi.form.controls.name.setValue("  North Field  ");
+    componentApi.form.controls.apiaryId.setValue("apiary-2");
     componentApi.form.controls.status.setValue(false);
 
     // when the modal form is submitted
@@ -165,6 +213,7 @@ describe("EditHiveModalComponent", () => {
 
     // then a save event contains the trimmed name and selected status
     expect(save).toHaveBeenCalledWith({
+      apiaryId: "apiary-2",
       name: "North Field",
       status: false,
     });
@@ -176,11 +225,13 @@ describe("EditHiveModalComponent", () => {
     component.closed.subscribe(closed);
     fixture.componentRef.setInput("hive", {
       hiveId: "hive-1",
+      apiaryId: "apiary-2",
       name: "North Field",
       status: false,
     });
     fixture.detectChanges();
     componentApi.form.controls.name.setValue("Changed Name");
+    componentApi.form.controls.apiaryId.setValue("apiary-1");
     componentApi.form.controls.status.setValue(true);
 
     // when the modal is closed
@@ -188,6 +239,7 @@ describe("EditHiveModalComponent", () => {
     fixture.detectChanges();
 
     // then the form is restored to the selected hive values
+    expect((fixture.nativeElement.querySelector("#hive-apiary") as HTMLSelectElement).value).toBe("apiary-2");
     expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).value).toBe("North Field");
     expect((fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("Inactive");
     expect(closed).toHaveBeenCalled();
@@ -209,13 +261,16 @@ describe("EditHiveModalComponent", () => {
     fixture.componentRef.setInput("isSaving", true);
     fixture.detectChanges();
     const nameInput = fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement;
+    const apiarySelect = fixture.nativeElement.querySelector("#hive-apiary") as HTMLSelectElement;
     const statusSelect = fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement;
 
-    // then both the reactive controls and native fields are disabled
+    // then all reactive controls and native fields are disabled
     expect(componentApi.form.disabled).toBe(true);
+    expect(componentApi.form.controls.apiaryId.disabled).toBe(true);
     expect(componentApi.form.controls.name.disabled).toBe(true);
     expect(componentApi.form.controls.status.disabled).toBe(true);
     expect(nameInput.disabled).toBe(true);
+    expect(apiarySelect.disabled).toBe(true);
     expect(statusSelect.disabled).toBe(true);
 
     // when saving finishes
@@ -224,9 +279,11 @@ describe("EditHiveModalComponent", () => {
 
     // then the form fields are interactive again
     expect(componentApi.form.disabled).toBe(false);
+    expect(componentApi.form.controls.apiaryId.disabled).toBe(false);
     expect(componentApi.form.controls.name.disabled).toBe(false);
     expect(componentApi.form.controls.status.disabled).toBe(false);
     expect(nameInput.disabled).toBe(false);
+    expect(apiarySelect.disabled).toBe(false);
     expect(statusSelect.disabled).toBe(false);
   });
 
@@ -238,6 +295,7 @@ describe("EditHiveModalComponent", () => {
     // when the selected hive changes
     fixture.componentRef.setInput("hive", {
       hiveId: "hive-1",
+      apiaryId: "apiary-2",
       name: "North Field",
       status: false,
     });
@@ -245,8 +303,10 @@ describe("EditHiveModalComponent", () => {
 
     // then the new values are populated without unlocking the form
     expect(componentApi.form.disabled).toBe(true);
+    expect((fixture.nativeElement.querySelector("#hive-apiary") as HTMLSelectElement).value).toBe("apiary-2");
     expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).value).toBe("North Field");
     expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).disabled).toBe(true);
+    expect((fixture.nativeElement.querySelector("#hive-apiary") as HTMLSelectElement).disabled).toBe(true);
     expect((fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement).disabled).toBe(true);
   });
 

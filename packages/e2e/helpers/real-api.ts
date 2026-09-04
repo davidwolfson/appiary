@@ -2,12 +2,16 @@ import { randomUUID } from "node:crypto";
 
 import type { APIRequestContext, APIResponse } from "@playwright/test";
 import type {
+  CreateApiaryRequest,
+  CreateApiaryResponse,
   AuthResponse,
   CreateHiveInspectionRequest,
   CreateHiveInspectionResponse,
   CreateHiveRequest,
   CreateHiveResponse,
   RegisterRequest,
+  UpdateHiveRequest,
+  UpdateHiveResponse,
 } from "@appiary/types";
 import { Pool } from "pg";
 
@@ -34,8 +38,12 @@ export function createRealApiIdentity(): RealApiIdentity {
   };
 }
 
-export function createRealHiveInput(): CreateHiveRequest {
-  return { name: `Real Hive ${randomUUID()}`, status: true };
+export function createRealHiveInput(apiaryId: string): CreateHiveRequest {
+  return { apiaryId, name: `Real Hive ${randomUUID()}`, status: true };
+}
+
+export function createRealApiaryInput(): CreateApiaryRequest {
+  return { name: `Real Apiary ${randomUUID()}` };
 }
 
 export function createRealInspectionInput(
@@ -129,6 +137,31 @@ export async function createHiveThroughRealApi(
     headers: { Authorization: `Bearer ${token}` },
   });
   return readSuccessfulJson<CreateHiveResponse>(response, "create hive");
+}
+
+export async function createApiaryThroughRealApi(
+  request: APIRequestContext,
+  token: string,
+  input: CreateApiaryRequest,
+): Promise<CreateApiaryResponse> {
+  const response = await request.post("/api/apiaries", {
+    data: input,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return readSuccessfulJson<CreateApiaryResponse>(response, "create apiary");
+}
+
+export async function updateHiveThroughRealApi(
+  request: APIRequestContext,
+  token: string,
+  hiveId: string,
+  input: UpdateHiveRequest,
+): Promise<UpdateHiveResponse> {
+  const response = await request.put(`/api/hives/${hiveId}`, {
+    data: input,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return readSuccessfulJson<UpdateHiveResponse>(response, "update hive");
 }
 
 export async function createInspectionThroughRealApi(

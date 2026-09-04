@@ -2,6 +2,12 @@ import { expect, test } from "@playwright/test";
 
 import { createAuthenticatedUser, visitAsAuthenticatedUser } from "../../helpers/auth";
 import {
+  createApiary,
+  createApiaryInput,
+  defaultApiaryId,
+  mockCreateApiaryRequest,
+} from "../../helpers/apiaries";
+import {
   createHive,
   createHiveInput,
   createInspection,
@@ -55,6 +61,216 @@ test.describe("hives dashboard", () => {
 
     // then I should see the empty dashboard state
     await expect(dashboardPage.emptyState).toBeVisible();
+  });
+
+  test("selects the first apiary by ID and requests only its hives", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const firstId = "00000000-0000-4000-8000-000000000010";
+    const secondId = "00000000-0000-4000-8000-000000000020";
+
+    // given the account API returns apiaries out of ID order
+    const { hiveRequests } = await visitAsAuthenticatedUser(
+      page,
+      createAuthenticatedUser(),
+      [createHive({ apiaryId: firstId })],
+      "token-123",
+      [createApiary({ apiaryId: secondId, name: "Second" }), createApiary({ apiaryId: firstId, name: "First" })],
+    );
+
+    // when the dashboard finishes loading
+    await dashboardPage.goto();
+
+    // then the first ID is selected and propagated as the list query
+    await expect(dashboardPage.apiarySelect).toHaveValue(firstId);
+    await expect.poll(() => hiveRequests).toEqual([{ apiaryId: firstId }]);
+  });
+
+  test("switches apiaries and isolates their hive cards", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const orchardId = defaultApiaryId;
+    const meadowId = "00000000-0000-4000-8000-000000000002";
+
+    // given two apiaries return different hives
+    const { hiveRequests } = await visitAsAuthenticatedUser(page, createAuthenticatedUser(), async (route) => {
+      const apiaryId = new URL(route.request().url()).searchParams.get("apiaryId");
+      const hives = apiaryId === orchardId
+        ? [createHive({ hiveId: "orchard-hive", apiaryId: orchardId, name: "Orchard Hive" })]
+        : [createHive({ hiveId: "meadow-hive", apiaryId: meadowId, name: "Meadow Hive" })];
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ hives }) });
+    }, "token-123", [
+      createApiary({ apiaryId: orchardId, name: "Orchard" }),
+      createApiary({ apiaryId: meadowId, name: "Meadow" }),
+    ]);
+    await dashboardPage.expectHiveCard("orchard-hive", "Orchard Hive", "Active");
+
+    // when I select the meadow apiary
+    await dashboardPage.selectApiary(meadowId);
+
+    // then only meadow data is requested and displayed
+    await expect.poll(() => hiveRequests).toEqual([{ apiaryId: orchardId }, { apiaryId: meadowId }]);
+    await dashboardPage.expectHiveCard("meadow-hive", "Meadow Hive", "Active");
+    await expect(dashboardPage.hiveCard("orchard-hive")).toHaveCount(0);
+  });
+
+  test("shows the no-apiary state without requesting hives", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+
+    // given the authenticated account has no apiaries
+    const { hiveRequests } = await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [], "token-123", []);
+
+    // when the dashboard settles
+    await dashboardPage.goto();
+
+    // then creation is prompted, Add Hive is disabled, and no hive request is sent
+    await expect(page.getByRole("heading", { name: "No apiaries yet" })).toBeVisible();
+    await expect(dashboardPage.addHiveButton).toBeDisabled();
+    await expectNoRequests(hiveRequests);
+  });
+
+  test("rejects an empty Add Apiary name", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const { requests } = await mockCreateApiaryRequest(page, async (route) => route.abort());
+
+    // given the Add Apiary dialog is open
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await dashboardPage.openAddApiaryModal();
+
+    // when I submit a whitespace-only name
+    await dashboardPage.fillApiaryForm({ name: "   " });
+    await dashboardPage.submitApiary();
+
+    // then required validation is shown without an API request
+    await expect(page.getByText("Apiary name is required.")).toBeVisible();
+    await expect(dashboardPage.addApiaryModal).toBeVisible();
+    await expectNoRequests(requests);
+  });
+
+  test("limits an Add Apiary name to 100 characters", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+
+    // given the Add Apiary dialog is open
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await dashboardPage.openAddApiaryModal();
+
+    // when I enter a 101-character name
+    await dashboardPage.fillApiaryForm({ name: "a".repeat(101) });
+
+    // then the native maximum-length control accepts only 100 characters
+    await expect(dashboardPage.apiaryNameInput).toHaveValue("a".repeat(100));
+  });
+
+  test("creates and selects the first apiary", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const created = createApiary({ name: "City Roof" });
+    const { requests } = await mockCreateApiaryRequest(page, async (route) => {
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ apiary: created }),
+      });
+    });
+    const { hiveRequests } = await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [], "token-123", []);
+    await dashboardPage.openAddApiaryModal();
+
+    // when I submit a valid padded name
+    await dashboardPage.fillApiaryForm({ name: "  City Roof  " });
+    await dashboardPage.submitApiary();
+
+    // then the trimmed request creates, selects, and loads the first apiary
+    await expect.poll(() => requests).toEqual([{ name: "City Roof" }]);
+    await expect(dashboardPage.addApiaryModal).toBeHidden();
+    await expect(dashboardPage.apiarySelect).toHaveValue(created.apiaryId);
+    await expect.poll(() => hiveRequests).toEqual([{ apiaryId: created.apiaryId }]);
+  });
+
+  test("keeps Add Apiary open after an API failure", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    await mockCreateApiaryRequest(page, async (route) => {
+      await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: "Apiary name already exists" }) });
+    });
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await dashboardPage.openAddApiaryModal();
+
+    // when apiary creation fails
+    await dashboardPage.fillApiaryForm(createApiaryInput({ name: "Home Apiary" }));
+    await dashboardPage.submitApiary();
+
+    // then the form value and actionable error remain visible
+    await expect(dashboardPage.addApiaryModal).toBeVisible();
+    await expect(dashboardPage.apiaryNameInput).toHaveValue("Home Apiary");
+    await expect(dashboardPage.addApiaryModal.getByRole("alert")).toHaveText("Apiary name already exists");
+  });
+
+  test("supports keyboard dismissal and focus restoration for Add Apiary", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+
+    // given the Add Apiary dialog is open from its dashboard trigger
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+    await dashboardPage.openAddApiaryModal();
+    await expect(dashboardPage.apiaryNameInput).toBeFocused();
+
+    // when I press Escape
+    await page.keyboard.press("Escape");
+
+    // then the dialog closes and focus returns to Add Apiary
+    await expect(dashboardPage.addApiaryModal).toBeHidden();
+    await expect(dashboardPage.addApiaryButton).toBeFocused();
+  });
+
+  test("defaults Add Hive to the dashboard apiary", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const secondId = "00000000-0000-4000-8000-000000000002";
+    const apiaries = [createApiary(), createApiary({ apiaryId: secondId, name: "Meadow" })];
+
+    // given the second apiary is selected on the dashboard
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [
+      createHive({ hiveId: "home-hive", apiaryId: defaultApiaryId }),
+    ], "token-123", apiaries);
+    await dashboardPage.selectApiary(secondId);
+
+    // when I open Add Hive
+    await dashboardPage.openAddHiveModal();
+
+    // then the dashboard apiary is selected in the form
+    await expect(dashboardPage.hiveApiarySelect).toHaveValue(secondId);
+  });
+
+  test("defaults Edit Hive to the hive's current apiary", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+
+    // given a hive belongs to the selected home apiary
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [createHive({ hiveId: "home-hive" })], "token-123", [
+      createApiary(), createApiary({ apiaryId: "00000000-0000-4000-8000-000000000002", name: "Meadow" }),
+    ]);
+
+    // when I edit the hive
+    await dashboardPage.openEditHiveModal("home-hive");
+
+    // then its persisted apiary is selected in the form
+    await expect(dashboardPage.hiveApiarySelect).toHaveValue(defaultApiaryId);
+  });
+
+  test("reassigns a hive and removes it from the selected apiary", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const targetId = "00000000-0000-4000-8000-000000000002";
+    const input = createHiveInput({ apiaryId: targetId, name: "Moved Hive" });
+    const { requests } = await mockUpdateHiveRequest(page, async (route, hiveId, payload) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ hive: createHive({ hiveId, ...payload }) }) });
+    });
+
+    // given a hive is shown in the selected apiary
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [createHive()], "token-123", [
+      createApiary(), createApiary({ apiaryId: targetId, name: "Meadow" }),
+    ]);
+    await dashboardPage.openEditHiveModal("hive-123");
+
+    // when I reassign it to the other apiary
+    await dashboardPage.fillForm(input);
+    await dashboardPage.submit();
+
+    // then the exact payload is sent and the old selection no longer shows the hive
+    await expect.poll(() => requests).toEqual([{ hiveId: "hive-123", payload: input }]);
+    await expect(dashboardPage.hiveCard("hive-123")).toHaveCount(0);
   });
 
   test("shows only active hive cards by default", async ({ page }) => {
@@ -159,7 +375,7 @@ test.describe("hives dashboard", () => {
     await dashboardPage.goto();
 
     // then I should see the load error
-    await expect(dashboardPage.alert).toHaveText("Could not load hives");
+    await expect(dashboardPage.alert).toContainText("Could not load hives");
   });
 
   test("opens the Add Hive modal from the labeled dashboard controls", async ({ page }) => {

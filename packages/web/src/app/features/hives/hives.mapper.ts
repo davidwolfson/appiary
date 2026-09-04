@@ -10,6 +10,7 @@ export function mapToHiveInspectionViewModel(inspection: HiveInspectionResponse)
 export function mapToHiveViewModel(hive: HiveResponse): HiveViewModel {
   return {
     hiveId: hive.hiveId,
+    apiaryId: hive.apiaryId,
     name: hive.name,
     status: hive.status,
     inspections: (hive.inspections ?? []).map(mapToHiveInspectionViewModel),

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const CreateHiveRequestSchema = z.object({
+  apiaryId: z.string().uuid("Apiary ID must be a valid UUID"),
   name: z.string()
     .trim()
     .min(1, "Hive name is required")
@@ -12,6 +13,10 @@ export const CreateHiveRequestSchema = z.object({
 });
 
 export const UpdateHiveRequestSchema = CreateHiveRequestSchema;
+
+export const HiveListQuerySchema = z.object({
+  apiaryId: z.string().uuid("Apiary ID must be a valid UUID"),
+});
 
 export const HiveRouteParamsSchema = z.object({
   hiveId: z.string().uuid("Hive ID must be a valid UUID"),

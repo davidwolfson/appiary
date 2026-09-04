@@ -42,6 +42,7 @@ export interface CreateHiveInspectionResponse {
 
 export interface HiveResponse {
   hiveId: string;
+  apiaryId: string;
   name: string;
   status: boolean;
   inspections: HiveInspectionResponse[];
@@ -49,6 +50,7 @@ export interface HiveResponse {
 }
 
 export interface CreateHiveRequest {
+  apiaryId: string;
   name: string;
   status: boolean;
 }
@@ -58,6 +60,7 @@ export interface CreateHiveResponse {
 }
 
 export interface UpdateHiveRequest {
+  apiaryId: string;
   name: string;
   status: boolean;
 }

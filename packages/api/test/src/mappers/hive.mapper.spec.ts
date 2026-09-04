@@ -7,6 +7,7 @@ describe("mapToHiveResponse", () => {
     // given a service result with public fields and backend-only data
     const result = {
       hiveId: "hive-1",
+      apiaryId: "apiary-1",
       name: "North Field",
       status: true,
       accountId: "account-1",
@@ -19,6 +20,7 @@ describe("mapToHiveResponse", () => {
     // then only the public response fields are returned
     expect(response).toEqual({
       hiveId: "hive-1",
+      apiaryId: "apiary-1",
       name: "North Field",
       status: true,
       inspections: [],

@@ -2,6 +2,7 @@ import type { HiveModel } from "../models/hive.model.js";
 import type { HiveInspectionModel } from "../models/hive-inspection.model.js";
 import { HIVE_INSPECTION_PAGE_SIZE, HiveInspectionRepository, type HiveInspectionPage } from "../repositories/hive-inspection.repository.js";
 import { DuplicateHiveNameError, HiveRepository } from "../repositories/hive.repository.js";
+import { ApiaryRepository } from "../repositories/apiary.repository.js";
 import { UserRepository } from "../repositories/user.repository.js";
 import type {
   CreateHiveAction,
@@ -22,11 +23,13 @@ export class HiveService {
     private readonly hiveRepository: HiveRepository,
     private readonly userRepository: UserRepository,
     private readonly hiveInspectionRepository: HiveInspectionRepository,
+    private readonly apiaryRepository: ApiaryRepository,
   ) {}
 
-  async listForAuthenticatedUser(authenticatedUserId: string): Promise<ListHivesResult> {
+  async listForAuthenticatedUser(authenticatedUserId: string, apiaryId: string): Promise<ListHivesResult> {
     const accountId = await this.getAuthenticatedAccountId(authenticatedUserId);
-    const hives = await this.hiveRepository.findByAccountId(accountId);
+    await this.requireOwnedApiary(accountId, apiaryId);
+    const hives = await this.hiveRepository.findByAccountIdAndApiaryId(accountId, apiaryId);
     const inspectionsByHiveId = await this.hiveInspectionRepository.findFirstPageForHiveIds(
       hives.map((hive) => hive.hiveId),
     );
@@ -38,11 +41,13 @@ export class HiveService {
 
   async createForAuthenticatedUser(action: CreateHiveAction): Promise<CreateHiveResult> {
     const accountId = await this.getAuthenticatedAccountId(action.authenticatedUserId);
+    await this.requireOwnedApiary(accountId, action.apiaryId);
     let hive: HiveModel;
 
     try {
       hive = await this.hiveRepository.create({
         accountId,
+        apiaryId: action.apiaryId,
         name: action.name.trim(),
         status: action.status,
       });
@@ -61,12 +66,14 @@ export class HiveService {
 
   async updateForAuthenticatedUser(action: UpdateHiveAction): Promise<UpdateHiveResult> {
     const accountId = await this.getAuthenticatedAccountId(action.authenticatedUserId);
+    await this.requireOwnedApiary(accountId, action.apiaryId);
     let hive: HiveModel | null;
 
     try {
       hive = await this.hiveRepository.update({
         accountId,
         hiveId: action.hiveId,
+        apiaryId: action.apiaryId,
         name: action.name.trim(),
         status: action.status,
       });
@@ -140,9 +147,17 @@ export class HiveService {
     return user.accountId;
   }
 
+  private async requireOwnedApiary(accountId: string, apiaryId: string): Promise<void> {
+    const apiary = await this.apiaryRepository.findByAccountIdAndApiaryId(accountId, apiaryId);
+    if (!apiary) {
+      throw new AppError(404, "Apiary not found");
+    }
+  }
+
   private mapHiveResult(hive: HiveModel, inspectionPage: HiveInspectionPage): HiveResult {
     return {
       hiveId: hive.hiveId,
+      apiaryId: hive.apiaryId,
       name: hive.name,
       status: hive.status,
       inspections: inspectionPage.inspections.map((inspection) => this.mapInspectionResult(inspection)),

@@ -10,11 +10,14 @@ import type {
   UpdateHiveRequest,
 } from "@appiary/types";
 
+import { defaultApiaryId } from "./apiaries";
+
 const listHivesHandlers = new WeakMap<Page, (route: Route) => Promise<void>>();
 
 export function createHive(overrides: Partial<HiveResponse> = {}): HiveResponse {
   return {
     hiveId: "hive-123",
+    apiaryId: defaultApiaryId,
     name: "North Field",
     status: true,
     inspections: [],
@@ -40,6 +43,7 @@ export function createInspectionInput(overrides: Partial<CreateHiveInspectionReq
 
 export function createHiveInput(overrides: Partial<CreateHiveRequest> = {}): CreateHiveRequest {
   return {
+    apiaryId: defaultApiaryId,
     name: "North Field",
     status: true,
     ...overrides,
@@ -49,10 +53,11 @@ export function createHiveInput(overrides: Partial<CreateHiveRequest> = {}): Cre
 export async function mockListHivesRequest(
   page: Page,
   hivesOrHandler: HiveResponse[] | ((route: Route) => Promise<void>) = [],
-): Promise<void> {
+): Promise<{ requests: Array<{ apiaryId: string | null }> }> {
+  const requests: Array<{ apiaryId: string | null }> = [];
   const previousHandler = listHivesHandlers.get(page);
   if (previousHandler) {
-    await page.unroute("**/api/hives", previousHandler);
+    await page.unroute("**/api/hives?*", previousHandler);
   }
 
   const handler = async (route: Route): Promise<void> => {
@@ -60,6 +65,8 @@ export async function mockListHivesRequest(
       await route.fallback();
       return;
     }
+
+    requests.push({ apiaryId: new URL(route.request().url()).searchParams.get("apiaryId") });
 
     if (typeof hivesOrHandler === "function") {
       await hivesOrHandler(route);
@@ -76,7 +83,8 @@ export async function mockListHivesRequest(
   };
 
   listHivesHandlers.set(page, handler);
-  await page.route("**/api/hives", handler);
+  await page.route("**/api/hives?*", handler);
+  return { requests };
 }
 
 export async function mockCreateHiveRequest(

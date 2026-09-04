@@ -13,7 +13,10 @@ import {
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 
 import type { CreateHiveRequest } from "@appiary/types";
+import type { ApiaryViewModel } from "./apiaries.mapper";
 import type { HiveViewModel } from "./hives.mapper";
+
+export type HiveFormValue = CreateHiveRequest;
 
 @Component({
   selector: "app-edit-hive-modal",
@@ -37,8 +40,14 @@ export class EditHiveModalComponent implements AfterViewInit, OnChanges {
   @Input()
   hive: HiveViewModel | null = null;
 
+  @Input()
+  apiaries: ApiaryViewModel[] = [];
+
+  @Input()
+  currentApiaryId: string | null = null;
+
   @Output()
-  readonly save = new EventEmitter<CreateHiveRequest>();
+  readonly save = new EventEmitter<HiveFormValue>();
 
   @Output()
   readonly closed = new EventEmitter<void>();
@@ -46,6 +55,7 @@ export class EditHiveModalComponent implements AfterViewInit, OnChanges {
   private readonly formBuilder = inject(FormBuilder);
 
   protected readonly form = this.formBuilder.nonNullable.group({
+    apiaryId: ["", [Validators.required]],
     name: ["", [Validators.required, Validators.maxLength(100)]],
     status: [true],
   });
@@ -59,7 +69,7 @@ export class EditHiveModalComponent implements AfterViewInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if ("hive" in changes) {
+    if ("hive" in changes || ("currentApiaryId" in changes && !this.hive)) {
       this.resetForm();
     }
 
@@ -126,6 +136,7 @@ export class EditHiveModalComponent implements AfterViewInit, OnChanges {
     }
 
     this.save.emit({
+      apiaryId: this.form.controls.apiaryId.value,
       name: trimmedName,
       status: this.form.controls.status.value,
     });
@@ -133,6 +144,7 @@ export class EditHiveModalComponent implements AfterViewInit, OnChanges {
 
   resetForm(): void {
     this.form.reset({
+      apiaryId: this.hive?.apiaryId ?? this.currentApiaryId ?? "",
       name: this.hive?.name ?? "",
       status: this.hive?.status ?? true,
     });

@@ -15,8 +15,8 @@ import {
 export class HivesService {
   private readonly hivesApi = inject(HivesApi);
 
-  async listHives(): Promise<HiveViewModel[]> {
-    const response = await firstValueFrom(this.hivesApi.listHives());
+  async listHives(apiaryId: string): Promise<HiveViewModel[]> {
+    const response = await firstValueFrom(this.hivesApi.listHives(apiaryId));
 
     return response.hives.map(mapToHiveViewModel);
   }

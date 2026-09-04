@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 
+import { apiaryRouter } from "./controllers/apiary.controller.js";
 import { authRouter } from "./controllers/auth.controller.js";
 import { hiveRouter } from "./controllers/hive.controller.js";
 import { errorMiddleware } from "./middleware/error.middleware.js";
@@ -19,6 +20,7 @@ export function createApp() {
   });
 
   app.use("/api/auth", authRouter);
+  app.use("/api/apiaries", apiaryRouter);
   app.use("/api/hives", hiveRouter);
   app.use(errorMiddleware);
 

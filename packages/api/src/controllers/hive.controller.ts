@@ -3,6 +3,7 @@ import { Router } from "express";
 import { mapToHiveInspectionResponse, mapToHiveResponse } from "../mappers/hive.mapper.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
 import { HiveRepository } from "../repositories/hive.repository.js";
+import { ApiaryRepository } from "../repositories/apiary.repository.js";
 import { HiveInspectionRepository } from "../repositories/hive-inspection.repository.js";
 import { UserRepository } from "../repositories/user.repository.js";
 import {
@@ -10,6 +11,7 @@ import {
   CreateHiveInspectionRequestSchema,
   HiveRouteParamsSchema,
   HiveInspectionPageQuerySchema,
+  HiveListQuerySchema,
   UpdateHiveRequestSchema,
 } from "../schemas/hive.schemas.js";
 import { HiveService } from "../services/hive.service.js";
@@ -19,6 +21,7 @@ const hiveService = new HiveService(
   new HiveRepository(),
   new UserRepository(),
   new HiveInspectionRepository(),
+  new ApiaryRepository(),
 );
 
 interface HiveRouteParams {
@@ -30,7 +33,8 @@ export const hiveRouter = Router();
 hiveRouter.use(requireAuth);
 
 hiveRouter.get("/", asyncHandler(async (req, res) => {
-  const result = await hiveService.listForAuthenticatedUser(req.authenticatedUserId!);
+  const query = HiveListQuerySchema.parse(req.query);
+  const result = await hiveService.listForAuthenticatedUser(req.authenticatedUserId!, query.apiaryId);
 
   res.status(200).json({
     hives: result.hives.map(mapToHiveResponse),
@@ -42,6 +46,7 @@ hiveRouter.post("/", asyncHandler(async (req, res) => {
 
   const result = await hiveService.createForAuthenticatedUser({
     authenticatedUserId: req.authenticatedUserId!,
+    apiaryId: input.apiaryId,
     name: input.name,
     status: input.status,
   });
@@ -87,6 +92,7 @@ hiveRouter.put("/:hiveId", asyncHandler<HiveRouteParams>(async (req, res) => {
   const result = await hiveService.updateForAuthenticatedUser({
     authenticatedUserId: req.authenticatedUserId!,
     hiveId: params.hiveId,
+    apiaryId: input.apiaryId,
     name: input.name,
     status: input.status,
   });

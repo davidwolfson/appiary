@@ -27,9 +27,20 @@ describe("HivesApi", () => {
     http.verify();
   });
 
+  it("lists hives for the requested apiary", () => {
+    // given an apiary is selected
+    // when its hives are listed
+    api.listHives("apiary-1").subscribe();
+
+    // then the apiary ID is sent as the exact query parameter
+    const request = http.expectOne("/api/hives?apiaryId=apiary-1");
+    expect(request.request.method).toBe("GET");
+    request.flush({ hives: [] });
+  });
+
   it("updates a hive with PUT", () => {
     // given valid update details are available
-    const payload = { name: "North Field", status: false };
+    const payload = { apiaryId: "apiary-1", name: "North Field", status: false };
 
     // when the API updates a hive
     api.updateHive("hive-1", payload).subscribe();

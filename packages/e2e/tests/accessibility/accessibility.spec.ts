@@ -79,6 +79,19 @@ test.describe("accessibility", () => {
     await expectAccessiblePage(page, testInfo, "Add Hive dialog");
   });
 
+  test("Add Apiary dialog has no selected-standard violations", async ({ page }, testInfo) => {
+    const dashboardPage = createHivesDashboardPage(page);
+
+    // given I am authenticated on the dashboard
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+
+    // when I open the Add Apiary dialog
+    await dashboardPage.openAddApiaryModal();
+
+    // then the dialog state meets the selected WCAG standards
+    await expectAccessiblePage(page, testInfo, "Add Apiary dialog");
+  });
+
   test("Add Inspection dialog has no selected-standard violations", async ({ page }, testInfo) => {
     const dashboardPage = createHivesDashboardPage(page);
 

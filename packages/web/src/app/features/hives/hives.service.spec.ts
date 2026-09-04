@@ -41,25 +41,25 @@ describe("HivesService", () => {
   it("lists mapped hives from the API", async () => {
     // given the API returns a hive-list response
     hivesApi.listHives.mockReturnValue(of({
-      hives: [{ hiveId: "hive-1", name: "North Field", status: true }],
+      hives: [{ hiveId: "hive-1", apiaryId: "apiary-1", name: "North Field", status: true }],
     }));
 
     // when the service lists hives
-    const result = service.listHives();
+    const result = service.listHives("apiary-1");
 
     // then the mapped hive array is returned
     await expect(result).resolves.toEqual([
-      { hiveId: "hive-1", name: "North Field", status: true, inspections: [] },
+      { hiveId: "hive-1", apiaryId: "apiary-1", name: "North Field", status: true, inspections: [] },
     ]);
-    expect(hivesApi.listHives).toHaveBeenCalled();
+    expect(hivesApi.listHives).toHaveBeenCalledWith("apiary-1");
   });
 
   it("creates and maps a hive from the API", async () => {
     // given valid create details and an API hive response are available
-    const payload: CreateHiveRequest = { name: "North Field", status: true };
+    const payload: CreateHiveRequest = { apiaryId: "apiary-1", name: "North Field", status: true };
 
     hivesApi.createHive.mockReturnValue(of({
-      hive: { hiveId: "hive-1", name: "North Field", status: true },
+      hive: { hiveId: "hive-1", apiaryId: "apiary-1", name: "North Field", status: true },
     }));
 
     // when the service creates the hive
@@ -68,6 +68,7 @@ describe("HivesService", () => {
     // then the request is forwarded and the mapped hive is returned
     await expect(result).resolves.toEqual({
       hiveId: "hive-1",
+      apiaryId: "apiary-1",
       name: "North Field",
       status: true,
       inspections: [],
@@ -77,10 +78,10 @@ describe("HivesService", () => {
 
   it("updates and maps a hive from the API", async () => {
     // given valid update details and an API hive response are available
-    const payload: UpdateHiveRequest = { name: "North Field", status: false };
+    const payload: UpdateHiveRequest = { apiaryId: "apiary-1", name: "North Field", status: false };
 
     hivesApi.updateHive.mockReturnValue(of({
-      hive: { hiveId: "hive-1", name: "North Field", status: false },
+      hive: { hiveId: "hive-1", apiaryId: "apiary-1", name: "North Field", status: false },
     }));
 
     // when the service updates the hive
@@ -89,6 +90,7 @@ describe("HivesService", () => {
     // then the request is forwarded and the mapped hive is returned
     await expect(result).resolves.toEqual({
       hiveId: "hive-1",
+      apiaryId: "apiary-1",
       name: "North Field",
       status: false,
       inspections: [],

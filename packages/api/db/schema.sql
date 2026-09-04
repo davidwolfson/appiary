@@ -22,13 +22,27 @@ CREATE TABLE IF NOT EXISTS revoked_tokens (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS apiaries (
+  apiary_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  name VARCHAR(100) NOT NULL,
+  status BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT apiaries_account_id_apiary_id_key UNIQUE (account_id, apiary_id)
+);
+
 CREATE TABLE IF NOT EXISTS hives (
   hive_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  apiary_id UUID NOT NULL,
   status BOOLEAN NOT NULL,
   name VARCHAR(100) NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT hives_account_id_apiary_id_fkey
+    FOREIGN KEY (account_id, apiary_id)
+    REFERENCES apiaries (account_id, apiary_id)
 );
 
 CREATE TABLE IF NOT EXISTS hive_inspections (
@@ -47,7 +61,10 @@ CREATE TABLE IF NOT EXISTS hive_inspections (
 );
 
 CREATE INDEX IF NOT EXISTS revoked_tokens_expires_at_idx ON revoked_tokens (expires_at);
+CREATE INDEX IF NOT EXISTS apiaries_account_id_idx ON apiaries (account_id);
+CREATE UNIQUE INDEX IF NOT EXISTS apiaries_account_id_lower_name_key ON apiaries (account_id, LOWER(name));
 CREATE INDEX IF NOT EXISTS hives_account_id_idx ON hives (account_id);
+CREATE INDEX IF NOT EXISTS hives_account_id_apiary_id_idx ON hives (account_id, apiary_id);
 CREATE UNIQUE INDEX IF NOT EXISTS hives_account_id_lower_name_key ON hives (account_id, LOWER(name));
 CREATE INDEX IF NOT EXISTS hive_inspections_hive_newest_idx
   ON hive_inspections (hive_id, inspection_date DESC, inspection_time DESC, created_at DESC, inspection_id DESC);

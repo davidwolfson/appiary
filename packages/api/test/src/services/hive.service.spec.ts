@@ -5,9 +5,10 @@ import { DuplicateHiveNameError } from "../../../src/repositories/hive.repositor
 import { AppError } from "../../../src/utils/app-error.js";
 
 describe("HiveService", () => {
+  const apiaryId = "00000000-0000-4000-8000-000000000001";
   const hiveRepository = {
     create: vi.fn(),
-    findByAccountId: vi.fn(),
+    findByAccountIdAndApiaryId: vi.fn(),
     update: vi.fn(),
   };
   const userRepository = {
@@ -18,20 +19,30 @@ describe("HiveService", () => {
     findFirstPageForHiveIds: vi.fn(),
     findPageForAccount: vi.fn(),
   };
+  const apiaryRepository = {
+    findByAccountIdAndApiaryId: vi.fn(),
+  };
 
   beforeEach(() => {
     hiveRepository.create.mockReset();
-    hiveRepository.findByAccountId.mockReset();
+    hiveRepository.findByAccountIdAndApiaryId.mockReset();
     hiveRepository.update.mockReset();
     userRepository.findById.mockReset();
     hiveInspectionRepository.createForAccount.mockReset();
     hiveInspectionRepository.findFirstPageForHiveIds.mockReset();
     hiveInspectionRepository.findPageForAccount.mockReset();
     hiveInspectionRepository.findFirstPageForHiveIds.mockResolvedValue(new Map());
+    apiaryRepository.findByAccountIdAndApiaryId.mockReset();
+    apiaryRepository.findByAccountIdAndApiaryId.mockResolvedValue({ apiaryId, accountId: "account-1" });
   });
 
   function createService() {
-    return new HiveService(hiveRepository as never, userRepository as never, hiveInspectionRepository as never);
+    return new HiveService(
+      hiveRepository as never,
+      userRepository as never,
+      hiveInspectionRepository as never,
+      apiaryRepository as never,
+    );
   }
 
   it("lists hives for the authenticated user's account", async () => {
@@ -39,10 +50,11 @@ describe("HiveService", () => {
     const service = createService();
 
     userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
-    hiveRepository.findByAccountId.mockResolvedValue([
+    hiveRepository.findByAccountIdAndApiaryId.mockResolvedValue([
       {
         hiveId: "hive-1",
         accountId: "account-1",
+        apiaryId,
         name: "North Field",
         status: true,
         createdAt: new Date(),
@@ -56,13 +68,14 @@ describe("HiveService", () => {
     }], totalItems: 1 }]]));
 
     // when the user's hives are requested
-    const result = service.listForAuthenticatedUser("user-1");
+    const result = service.listForAuthenticatedUser("user-1", apiaryId);
 
     // then the repository is scoped to the account and the hives are returned
     await expect(result).resolves.toEqual({
       hives: [
         {
           hiveId: "hive-1",
+          apiaryId,
           name: "North Field",
           status: true,
           inspectionPagination: { page: 1, pageSize: 5, totalItems: 1, totalPages: 1 },
@@ -74,8 +87,27 @@ describe("HiveService", () => {
         },
       ],
     });
-    expect(hiveRepository.findByAccountId).toHaveBeenCalledWith("account-1");
+    expect(hiveRepository.findByAccountIdAndApiaryId).toHaveBeenCalledWith("account-1", apiaryId);
     expect(hiveInspectionRepository.findFirstPageForHiveIds).toHaveBeenCalledWith(["hive-1"]);
+  });
+
+  it("returns an empty list for an owned apiary without hives", async () => {
+    const service = createService();
+    userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
+    hiveRepository.findByAccountIdAndApiaryId.mockResolvedValue([]);
+
+    await expect(service.listForAuthenticatedUser("user-1", apiaryId)).resolves.toEqual({ hives: [] });
+    expect(hiveInspectionRepository.findFirstPageForHiveIds).toHaveBeenCalledWith([]);
+  });
+
+  it("does not disclose a missing or foreign apiary when listing hives", async () => {
+    const service = createService();
+    userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
+    apiaryRepository.findByAccountIdAndApiaryId.mockResolvedValue(null);
+
+    await expect(service.listForAuthenticatedUser("user-1", apiaryId))
+      .rejects.toEqual(new AppError(404, "Apiary not found"));
+    expect(hiveRepository.findByAccountIdAndApiaryId).not.toHaveBeenCalled();
   });
 
   it("creates a hive for the authenticated user's account", async () => {
@@ -86,6 +118,7 @@ describe("HiveService", () => {
     hiveRepository.create.mockResolvedValue({
       hiveId: "hive-1",
       accountId: "account-1",
+      apiaryId,
       name: "North Field",
       status: true,
       createdAt: new Date(),
@@ -95,6 +128,7 @@ describe("HiveService", () => {
     // when the user creates a hive
     const result = service.createForAuthenticatedUser({
       authenticatedUserId: "user-1",
+      apiaryId,
       name: "  North Field  ",
       status: true,
     });
@@ -103,6 +137,7 @@ describe("HiveService", () => {
     await expect(result).resolves.toEqual({
       hive: {
         hiveId: "hive-1",
+        apiaryId,
         name: "North Field",
         status: true,
         inspectionPagination: { page: 1, pageSize: 5, totalItems: 0, totalPages: 0 },
@@ -111,6 +146,7 @@ describe("HiveService", () => {
     });
     expect(hiveRepository.create).toHaveBeenCalledWith({
       accountId: "account-1",
+      apiaryId,
       name: "North Field",
       status: true,
     });
@@ -126,6 +162,7 @@ describe("HiveService", () => {
     // when the user creates the hive
     const result = service.createForAuthenticatedUser({
       authenticatedUserId: "user-1",
+      apiaryId,
       name: "North Field",
       status: true,
     });
@@ -134,12 +171,27 @@ describe("HiveService", () => {
     await expect(result).rejects.toEqual(new AppError(409, "Hive name already exists"));
   });
 
+  it.each(["create", "update"])("rejects %s when the requested apiary is not owned", async (operation) => {
+    const service = createService();
+    userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
+    apiaryRepository.findByAccountIdAndApiaryId.mockResolvedValue(null);
+
+    const result = operation === "create"
+      ? service.createForAuthenticatedUser({ authenticatedUserId: "user-1", apiaryId, name: "North", status: true })
+      : service.updateForAuthenticatedUser({ authenticatedUserId: "user-1", hiveId: "hive-1", apiaryId, name: "North", status: true });
+
+    await expect(result).rejects.toEqual(new AppError(404, "Apiary not found"));
+    expect(hiveRepository.create).not.toHaveBeenCalled();
+    expect(hiveRepository.update).not.toHaveBeenCalled();
+  });
+
   it("updates a hive to changed values for the authenticated user's account", async () => {
     // given the authenticated user belongs to an account with a hive currently named North Field and active
     const service = createService();
     const existingHive = {
       hiveId: "hive-1",
       accountId: "account-1",
+      apiaryId,
       name: "North Field",
       status: true,
     };
@@ -166,6 +218,7 @@ describe("HiveService", () => {
     hiveRepository.update.mockResolvedValue({
       hiveId: existingHive.hiveId,
       accountId: existingHive.accountId,
+      apiaryId,
       name: updatePayload.name,
       status: updatePayload.status,
       createdAt: new Date(),
@@ -179,6 +232,7 @@ describe("HiveService", () => {
     const result = service.updateForAuthenticatedUser({
       authenticatedUserId: "user-1",
       hiveId: existingHive.hiveId,
+      apiaryId,
       name: `  ${updatePayload.name}  `,
       status: updatePayload.status,
     });
@@ -187,6 +241,7 @@ describe("HiveService", () => {
     await expect(result).resolves.toEqual({
       hive: {
         hiveId: existingHive.hiveId,
+        apiaryId,
         name: updatePayload.name,
         status: updatePayload.status,
         inspectionPagination: { page: 1, pageSize: 5, totalItems: 1, totalPages: 1 },
@@ -207,6 +262,7 @@ describe("HiveService", () => {
     expect(hiveRepository.update).toHaveBeenCalledWith({
       accountId: existingHive.accountId,
       hiveId: existingHive.hiveId,
+      apiaryId,
       name: updatePayload.name,
       status: updatePayload.status,
     });
@@ -224,6 +280,7 @@ describe("HiveService", () => {
     const result = service.updateForAuthenticatedUser({
       authenticatedUserId: "user-1",
       hiveId: "hive-1",
+      apiaryId,
       name: "South Field",
       status: true,
     });
@@ -243,6 +300,7 @@ describe("HiveService", () => {
     const result = service.updateForAuthenticatedUser({
       authenticatedUserId: "user-1",
       hiveId: "missing-hive",
+      apiaryId,
       name: "South Field",
       status: true,
     });
@@ -258,7 +316,7 @@ describe("HiveService", () => {
     userRepository.findById.mockResolvedValue(null);
 
     // when the user's hives are requested
-    const result = service.listForAuthenticatedUser("missing-user");
+    const result = service.listForAuthenticatedUser("missing-user", apiaryId);
 
     // then the service rejects the request as unauthorized
     await expect(result).rejects.toEqual(new AppError(401, "Unauthorized"));
@@ -353,6 +411,7 @@ describe("HiveService", () => {
     // when the user creates a hive
     const result = service.createForAuthenticatedUser({
       authenticatedUserId: "missing-user",
+      apiaryId,
       name: "North Field",
       status: true,
     });
@@ -370,6 +429,7 @@ describe("HiveService", () => {
     const result = service.updateForAuthenticatedUser({
       authenticatedUserId: "missing-user",
       hiveId: "hive-1",
+      apiaryId,
       name: "South Field",
       status: true,
     });

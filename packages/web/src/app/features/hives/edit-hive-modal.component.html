@@ -22,6 +22,19 @@
           }
 
           <div class="mb-3">
+            <label class="form-label" for="hive-apiary">Apiary</label>
+            <select id="hive-apiary" class="form-select" formControlName="apiaryId">
+              <option value="" disabled>Select an apiary</option>
+              @for (apiary of apiaries; track apiary.apiaryId) {
+                <option [value]="apiary.apiaryId">{{ apiary.name }}{{ apiary.status ? "" : " (Inactive)" }}</option>
+              }
+            </select>
+            @if (form.controls.apiaryId.touched && form.controls.apiaryId.hasError("required")) {
+              <div class="invalid-feedback d-block">Apiary is required.</div>
+            }
+          </div>
+
+          <div class="mb-3">
             <label class="form-label" for="hive-name">Hive Name</label>
             <input #nameInput id="hive-name" class="form-control" type="text" formControlName="name" maxlength="100">
             @if (form.controls.name.touched && form.controls.name.value.trim().length === 0) {

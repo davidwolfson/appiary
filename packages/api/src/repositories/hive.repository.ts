@@ -4,6 +4,7 @@ import { database } from "../utils/database.js";
 interface HiveRow {
   hive_id: string;
   account_id: string;
+  apiary_id: string;
   name: string;
   status: boolean;
   created_at: Date;
@@ -27,13 +28,13 @@ export class DuplicateHiveNameError extends Error {
 }
 
 export class HiveRepository {
-  async create(input: { accountId: string; name: string; status: boolean }): Promise<HiveModel> {
+  async create(input: { accountId: string; apiaryId: string; name: string; status: boolean }): Promise<HiveModel> {
     try {
       const result = await database.query<HiveRow>(
-        `INSERT INTO hives (account_id, name, status)
-         VALUES ($1, $2, $3)
-         RETURNING hive_id, account_id, name, status, created_at, updated_at`,
-        [input.accountId, input.name, input.status],
+        `INSERT INTO hives (account_id, apiary_id, name, status)
+         VALUES ($1, $2, $3, $4)
+         RETURNING hive_id, account_id, apiary_id, name, status, created_at, updated_at`,
+        [input.accountId, input.apiaryId, input.name, input.status],
       );
 
       return this.mapHive(result.rows[0]);
@@ -46,29 +47,31 @@ export class HiveRepository {
     }
   }
 
-  async findByAccountId(accountId: string): Promise<HiveModel[]> {
+  async findByAccountIdAndApiaryId(accountId: string, apiaryId: string): Promise<HiveModel[]> {
     const result = await database.query<HiveRow>(
-      `SELECT hive_id, account_id, name, status, created_at, updated_at
+      `SELECT hive_id, account_id, apiary_id, name, status, created_at, updated_at
        FROM hives
        WHERE account_id = $1
+         AND apiary_id = $2
        ORDER BY created_at ASC, hive_id ASC`,
-      [accountId],
+      [accountId, apiaryId],
     );
 
     return result.rows.map((row) => this.mapHive(row));
   }
 
-  async update(input: { accountId: string; hiveId: string; name: string; status: boolean }): Promise<HiveModel | null> {
+  async update(input: { accountId: string; hiveId: string; apiaryId: string; name: string; status: boolean }): Promise<HiveModel | null> {
     try {
       const result = await database.query<HiveRow>(
         `UPDATE hives
-         SET name = $3,
-             status = $4,
+         SET apiary_id = $3,
+             name = $4,
+             status = $5,
              updated_at = NOW()
          WHERE account_id = $1
            AND hive_id = $2
-         RETURNING hive_id, account_id, name, status, created_at, updated_at`,
-        [input.accountId, input.hiveId, input.name, input.status],
+         RETURNING hive_id, account_id, apiary_id, name, status, created_at, updated_at`,
+        [input.accountId, input.hiveId, input.apiaryId, input.name, input.status],
       );
 
       const row = result.rows[0];
@@ -91,6 +94,7 @@ export class HiveRepository {
     return {
       hiveId: row.hive_id,
       accountId: row.account_id,
+      apiaryId: row.apiary_id,
       name: row.name,
       status: row.status,
       createdAt: row.created_at,

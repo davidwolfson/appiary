@@ -32,8 +32,15 @@ describe("assertDatabaseSchema", () => {
         { table_name: "revoked_tokens", column_name: "jti" },
         { table_name: "revoked_tokens", column_name: "expires_at" },
         { table_name: "revoked_tokens", column_name: "created_at" },
+        { table_name: "apiaries", column_name: "apiary_id" },
+        { table_name: "apiaries", column_name: "account_id" },
+        { table_name: "apiaries", column_name: "name" },
+        { table_name: "apiaries", column_name: "status" },
+        { table_name: "apiaries", column_name: "created_at" },
+        { table_name: "apiaries", column_name: "updated_at" },
         { table_name: "hives", column_name: "hive_id" },
         { table_name: "hives", column_name: "account_id" },
+        { table_name: "hives", column_name: "apiary_id" },
         { table_name: "hives", column_name: "status" },
         { table_name: "hives", column_name: "name" },
         { table_name: "hives", column_name: "created_at" },
@@ -81,7 +88,7 @@ describe("assertDatabaseSchema", () => {
     );
     expect((error as Error).message).toContain("accounts: missing name, created_at, updated_at");
     expect((error as Error).message).toContain(
-      "hives: missing hive_id, account_id, status, name, created_at, updated_at",
+      "hives: missing hive_id, account_id, apiary_id, status, name, created_at, updated_at",
     );
   });
 });
