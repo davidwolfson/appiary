@@ -62,19 +62,22 @@ describe("ApiaryRepository", () => {
   });
 
   it("finds an apiary only within its account", async () => {
+    // given the database returns an owned apiary followed by no matching apiary
     const row = {
       apiary_id: "apiary-1", account_id: "account-1", name: "North Yard", status: true,
       created_at: new Date(), updated_at: new Date(),
     };
-    queryMock.mockResolvedValue({ rows: [row] });
+    queryMock.mockResolvedValueOnce({ rows: [row] }).mockResolvedValueOnce({ rows: [] });
     const repository = new ApiaryRepository();
 
-    await expect(repository.findByAccountIdAndApiaryId("account-1", "apiary-1"))
-      .resolves.toMatchObject({ apiaryId: "apiary-1", accountId: "account-1" });
-    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("AND apiary_id = $2"), ["account-1", "apiary-1"]);
+    // when owned and missing apiaries are looked up within the account
+    const ownedApiary = await repository.findByAccountIdAndApiaryId("account-1", "apiary-1");
+    const missingApiary = await repository.findByAccountIdAndApiaryId("account-1", "missing-apiary");
 
-    queryMock.mockResolvedValueOnce({ rows: [] });
-    await expect(repository.findByAccountIdAndApiaryId("account-1", "missing-apiary")).resolves.toBeNull();
+    // then the lookup is account-scoped and only the owned apiary is returned
+    expect(ownedApiary).toMatchObject({ apiaryId: "apiary-1", accountId: "account-1" });
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("AND apiary_id = $2"), ["account-1", "apiary-1"]);
+    expect(missingApiary).toBeNull();
   });
 
   it("maps only the named apiary-name constraint to a duplicate error", async () => {

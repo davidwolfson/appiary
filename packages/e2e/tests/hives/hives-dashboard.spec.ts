@@ -18,7 +18,7 @@ import {
   mockListInspectionsRequest,
   mockUpdateHiveRequest,
 } from "../../helpers/hives";
-import { expectNoRequests } from "../../helpers/requests";
+import { expectNoRequests, expectRequestCountToRemain } from "../../helpers/requests";
 import { routes } from "../../helpers/routes";
 import { createHivesDashboardPage } from "../../pages/hives-dashboard-page";
 
@@ -122,9 +122,71 @@ test.describe("hives dashboard", () => {
     await dashboardPage.goto();
 
     // then creation is prompted, Add Hive is disabled, and no hive request is sent
-    await expect(page.getByRole("heading", { name: "No apiaries yet" })).toBeVisible();
+    await expect(dashboardPage.emptyApiariesState).toBeVisible();
     await expect(dashboardPage.addHiveButton).toBeDisabled();
     await expectNoRequests(hiveRequests);
+  });
+
+  test("shows a loading state while the initial apiaries request is pending", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    let releaseApiaries!: () => void;
+    const apiariesPending = new Promise<void>((resolve) => { releaseApiaries = resolve; });
+
+    try {
+      // given the authenticated account's initial apiaries request is gated
+      await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [], "token-123", async (route) => {
+        await apiariesPending;
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ apiaries: [] }) });
+      });
+
+      // when the dashboard opens before the apiaries response settles
+      await dashboardPage.goto();
+
+      // then the apiaries loading status is announced and dependent controls are disabled
+      await expect(dashboardPage.apiariesLoadingStatus).toHaveText("Loading apiaries...");
+      await expect(dashboardPage.apiarySelect).toBeDisabled();
+    } finally {
+      releaseApiaries();
+    }
+  });
+
+  test("shows an actionable error when the initial apiaries request fails", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+
+    // given the authenticated account's apiaries request will fail
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [], "token-123", async (route) => {
+      await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Could not load apiaries" }) });
+    });
+
+    // when the dashboard finishes handling the failed response
+    await dashboardPage.goto();
+
+    // then the failure and its retry action are visible
+    await expect(dashboardPage.alert).toContainText("Unable to load apiaries: Could not load apiaries");
+    await expect(dashboardPage.retryApiariesButton).toBeEnabled();
+  });
+
+  test("retries a failed initial apiaries request", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    const apiaryRequests: string[] = [];
+
+    // given the initial apiaries request fails and the next attempt succeeds
+    await visitAsAuthenticatedUser(page, createAuthenticatedUser(), [], "token-123", async (route) => {
+      apiaryRequests.push(route.request().method());
+      if (apiaryRequests.length === 1) {
+        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Could not load apiaries" }) });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ apiaries: [] }) });
+    });
+
+    // when I retry loading apiaries
+    await dashboardPage.retryApiariesButton.click();
+
+    // then a second GET succeeds and the no-apiary state replaces the error
+    await expect.poll(() => apiaryRequests).toEqual(["GET", "GET"]);
+    await expect(dashboardPage.emptyApiariesState).toBeVisible();
+    await expect(dashboardPage.alert).toHaveCount(0);
   });
 
   test("rejects an empty Add Apiary name", async ({ page }) => {
@@ -161,6 +223,8 @@ test.describe("hives dashboard", () => {
 
   test("creates and selects the first apiary", async ({ page }) => {
     const dashboardPage = createHivesDashboardPage(page);
+
+    // given I am adding the first apiary from an empty dashboard
     const created = createApiary({ name: "City Roof" });
     const { requests } = await mockCreateApiaryRequest(page, async (route) => {
       await route.fulfill({
@@ -185,6 +249,8 @@ test.describe("hives dashboard", () => {
 
   test("keeps Add Apiary open after an API failure", async ({ page }) => {
     const dashboardPage = createHivesDashboardPage(page);
+
+    // given the Add Apiary dialog is open and creation will fail with a conflict
     await mockCreateApiaryRequest(page, async (route) => {
       await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ message: "Apiary name already exists" }) });
     });
@@ -199,6 +265,42 @@ test.describe("hives dashboard", () => {
     await expect(dashboardPage.addApiaryModal).toBeVisible();
     await expect(dashboardPage.apiaryNameInput).toHaveValue("Home Apiary");
     await expect(dashboardPage.addApiaryModal.getByRole("alert")).toHaveText("Apiary name already exists");
+  });
+
+  test("shows pending Add Apiary feedback and prevents duplicate submission", async ({ page }) => {
+    const dashboardPage = createHivesDashboardPage(page);
+    let releaseCreation!: () => void;
+    const creationPending = new Promise<void>((resolve) => { releaseCreation = resolve; });
+    const created = createApiary({ name: "City Roof" });
+    const { requests } = await mockCreateApiaryRequest(page, async (route) => {
+      await creationPending;
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ apiary: created }),
+      });
+    });
+
+    try {
+      // given the Add Apiary dialog is open and creation is gated
+      await visitAsAuthenticatedUser(page, createAuthenticatedUser());
+      await dashboardPage.openAddApiaryModal();
+      await dashboardPage.fillApiaryForm(createApiaryInput({ name: "City Roof" }));
+
+      // when I submit and press Enter again while the request is pending
+      await dashboardPage.submitApiary();
+      await expect.poll(() => requests).toEqual([{ name: "City Roof" }]);
+      await page.keyboard.press("Enter");
+
+      // then saving feedback is visible, the form is disabled, and only one request is sent
+      await expect(dashboardPage.savingApiaryButton).toBeDisabled();
+      await expect(dashboardPage.apiaryNameInput).toBeDisabled();
+      await expect(dashboardPage.cancelApiaryButton).toBeDisabled();
+      await expect(dashboardPage.closeApiaryButton).toBeDisabled();
+      await expectRequestCountToRemain(requests, 1);
+    } finally {
+      releaseCreation();
+    }
   });
 
   test("supports keyboard dismissal and focus restoration for Add Apiary", async ({ page }) => {

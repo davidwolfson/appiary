@@ -92,21 +92,30 @@ describe("HiveService", () => {
   });
 
   it("returns an empty list for an owned apiary without hives", async () => {
+    // given the authenticated user owns an apiary with no hives
     const service = createService();
     userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
     hiveRepository.findByAccountIdAndApiaryId.mockResolvedValue([]);
 
-    await expect(service.listForAuthenticatedUser("user-1", apiaryId)).resolves.toEqual({ hives: [] });
+    // when the user's hives are listed for that apiary
+    const result = service.listForAuthenticatedUser("user-1", apiaryId);
+
+    // then an empty hive list is returned and no inspection IDs are requested
+    await expect(result).resolves.toEqual({ hives: [] });
     expect(hiveInspectionRepository.findFirstPageForHiveIds).toHaveBeenCalledWith([]);
   });
 
   it("does not disclose a missing or foreign apiary when listing hives", async () => {
+    // given the requested apiary is not visible in the authenticated user's account
     const service = createService();
     userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
     apiaryRepository.findByAccountIdAndApiaryId.mockResolvedValue(null);
 
-    await expect(service.listForAuthenticatedUser("user-1", apiaryId))
-      .rejects.toEqual(new AppError(404, "Apiary not found"));
+    // when the user's hives are listed for that apiary
+    const result = service.listForAuthenticatedUser("user-1", apiaryId);
+
+    // then a non-disclosing not-found error is returned before hives are queried
+    await expect(result).rejects.toEqual(new AppError(404, "Apiary not found"));
     expect(hiveRepository.findByAccountIdAndApiaryId).not.toHaveBeenCalled();
   });
 
@@ -172,14 +181,17 @@ describe("HiveService", () => {
   });
 
   it.each(["create", "update"])("rejects %s when the requested apiary is not owned", async (operation) => {
+    // given the requested apiary is not owned by the authenticated user's account
     const service = createService();
     userRepository.findById.mockResolvedValue({ id: "user-1", accountId: "account-1" });
     apiaryRepository.findByAccountIdAndApiaryId.mockResolvedValue(null);
 
+    // when the user creates or updates a hive in that apiary
     const result = operation === "create"
       ? service.createForAuthenticatedUser({ authenticatedUserId: "user-1", apiaryId, name: "North", status: true })
       : service.updateForAuthenticatedUser({ authenticatedUserId: "user-1", hiveId: "hive-1", apiaryId, name: "North", status: true });
 
+    // then the service returns not found without persisting the hive
     await expect(result).rejects.toEqual(new AppError(404, "Apiary not found"));
     expect(hiveRepository.create).not.toHaveBeenCalled();
     expect(hiveRepository.update).not.toHaveBeenCalled();

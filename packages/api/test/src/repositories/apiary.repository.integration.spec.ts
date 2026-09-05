@@ -82,14 +82,19 @@ describe("ApiaryRepository PostgreSQL integration", () => {
   });
 
   it("finds owned apiaries without disclosing foreign apiaries", async () => {
+    // given an apiary owned by one account and a different account
     const repository = new ApiaryRepository();
     const ownerAccountId = await createAccount("Find apiary owner");
     const otherAccountId = await createAccount("Find apiary outsider");
     const apiary = await repository.create({ accountId: ownerAccountId, name: `Owned ${randomUUID()}` });
 
-    await expect(repository.findByAccountIdAndApiaryId(ownerAccountId, apiary.apiaryId))
-      .resolves.toMatchObject({ apiaryId: apiary.apiaryId, accountId: ownerAccountId });
-    await expect(repository.findByAccountIdAndApiaryId(otherAccountId, apiary.apiaryId)).resolves.toBeNull();
+    // when the apiary is looked up from both accounts
+    const ownedApiary = await repository.findByAccountIdAndApiaryId(ownerAccountId, apiary.apiaryId);
+    const foreignApiary = await repository.findByAccountIdAndApiaryId(otherAccountId, apiary.apiaryId);
+
+    // then the owner can find it without disclosing it to the other account
+    expect(ownedApiary).toMatchObject({ apiaryId: apiary.apiaryId, accountId: ownerAccountId });
+    expect(foreignApiary).toBeNull();
   });
 
   async function createAccount(namePrefix: string): Promise<string> {

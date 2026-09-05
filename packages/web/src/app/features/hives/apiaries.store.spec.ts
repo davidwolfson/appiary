@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { vi } from "vitest";
 
+import type { ApiaryViewModel } from "./apiaries.mapper";
 import { ApiariesService } from "./apiaries.service";
 import { ApiariesStore } from "./apiaries.store";
 import { HivesStore } from "./hives.store";
@@ -98,6 +99,48 @@ describe("ApiariesStore", () => {
     expect(store.apiaries().map(({ apiaryId }) => apiaryId)).toEqual(["apiary-a", "apiary-b"]);
     expect(store.selectedApiaryId()).toBe("apiary-a");
     expect(hivesStore.loadHives).not.toHaveBeenCalled();
+  });
+
+  it("preserves an apiary created while the initial list is loading", async () => {
+    // given the initial apiary list remains in flight while creation succeeds
+    let resolveList!: (apiaries: ApiaryViewModel[]) => void;
+    service.listApiaries.mockReturnValue(new Promise<ApiaryViewModel[]>((resolve) => {
+      resolveList = resolve;
+    }));
+    service.createApiary.mockResolvedValue({ apiaryId: "apiary-a", name: "North", status: true });
+    const loadResult = store.loadApiaries();
+
+    // when the apiary is created before the older empty list response resolves
+    await store.createApiary({ name: "North" });
+    resolveList([]);
+    await loadResult;
+
+    // then the created apiary and its selection are preserved
+    expect(store.apiaries()).toEqual([{ apiaryId: "apiary-a", name: "North", status: true }]);
+    expect(store.selectedApiaryId()).toBe("apiary-a");
+    expect(hivesStore.clearSelection).not.toHaveBeenCalled();
+  });
+
+  it("ignores an initial list failure after an apiary is created", async () => {
+    // given the initial apiary list remains in flight while creation succeeds
+    let rejectList!: (error: unknown) => void;
+    service.listApiaries.mockReturnValue(new Promise<ApiaryViewModel[]>((_resolve, reject) => {
+      rejectList = reject;
+    }));
+    service.createApiary.mockResolvedValue({ apiaryId: "apiary-a", name: "North", status: true });
+    const loadResult = store.loadApiaries();
+
+    // when the apiary is created before the older list request fails
+    await store.createApiary({ name: "North" });
+    rejectList({ error: { message: "Could not load apiaries" } });
+    await loadResult;
+
+    // then the stale failure does not replace the successful created state
+    expect(store.apiaries()).toEqual([{ apiaryId: "apiary-a", name: "North", status: true }]);
+    expect(store.selectedApiaryId()).toBe("apiary-a");
+    expect(store.error()).toBeNull();
+    expect(store.isLoading()).toBe(false);
+    expect(hivesStore.clearSelection).not.toHaveBeenCalled();
   });
 
   it("exposes list and create errors separately", async () => {

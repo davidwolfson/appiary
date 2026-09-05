@@ -92,6 +92,29 @@ describe("HiveCardComponent", () => {
     expect(card.dataset["testid"]).toBe("hive-card-hive-1");
   });
 
+  it("keeps card actions in responsive normal flow below the hive heading", () => {
+    // given a hive with a long name is supplied to a narrow card layout
+    fixture.componentRef.setInput("hive", {
+      hiveId: "hive-1",
+      name: "North Field Observation Colony",
+      status: true,
+    });
+
+    // when the card header is rendered
+    fixture.detectChanges();
+
+    // then the heading and wrapping action row occupy separate normal-flow regions
+    const card = fixture.nativeElement.querySelector("article") as HTMLElement;
+    const header = fixture.nativeElement.querySelector("header") as HTMLElement;
+    const heading = header.querySelector("h2") as HTMLHeadingElement;
+    const actions = header.querySelector(".hive-card-actions") as HTMLElement;
+    expect(card.classList).not.toContain("position-relative");
+    expect(actions.classList).toContain("flex-wrap");
+    expect(actions.classList).not.toContain("position-absolute");
+    expect(heading.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(actions.querySelectorAll("button")).toHaveLength(2);
+  });
+
   it("uses the one-based card index to distinguish control names", () => {
     // given the hive is rendered as the third card
     fixture.componentRef.setInput("cardIndex", 2);

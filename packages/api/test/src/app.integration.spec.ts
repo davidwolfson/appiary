@@ -443,9 +443,12 @@ describe("createApp", () => {
   });
 
   it.each(["", "?apiaryId=not-a-uuid"])("rejects a missing or malformed hive-list apiary query: %s", async (query) => {
+    // given a hive-list request with a missing or malformed apiary query
     await withApp(async (baseUrl) => {
+      // when the protected hive-list route is requested
       const response = await fetch(`${baseUrl}/api/hives${query}`);
 
+      // then validation fails before the hive service is called
       expect(response.status).toBe(400);
       await expect(response.json()).resolves.toMatchObject({ message: "Validation failed" });
       expect(listForAuthenticatedUserMock).not.toHaveBeenCalled();
@@ -453,11 +456,14 @@ describe("createApp", () => {
   });
 
   it("maps an unowned apiary to not found when listing hives", async () => {
+    // given the hive service cannot find the requested apiary for the authenticated user
     listForAuthenticatedUserMock.mockRejectedValue(new AppError(404, "Apiary not found"));
 
     await withApp(async (baseUrl) => {
+      // when the protected hive-list route is requested for that apiary
       const response = await fetch(`${baseUrl}/api/hives?apiaryId=${apiaryId}`);
 
+      // then the route returns the non-disclosing not-found response
       expect(response.status).toBe(404);
       await expect(response.json()).resolves.toEqual({ message: "Apiary not found" });
     });

@@ -12,11 +12,23 @@ const apiaryId = "00000000-0000-4000-8000-000000000001";
 
 describe("HiveListQuerySchema", () => {
   it("accepts a valid apiary UUID", () => {
-    expect(HiveListQuerySchema.parse({ apiaryId })).toEqual({ apiaryId });
+    // given a hive-list query with a valid apiary UUID
+    const input = { apiaryId };
+
+    // when the hive-list query is parsed
+    const result = HiveListQuerySchema.parse(input);
+
+    // then the apiary ID is returned
+    expect(result).toEqual(input);
   });
 
   it.each([{}, { apiaryId: "not-a-uuid" }])("rejects an invalid apiary query in %j", (input) => {
-    expect(HiveListQuerySchema.safeParse(input).success).toBe(false);
+    // given a hive-list query with a missing or malformed apiary ID
+    // when the hive-list query is parsed safely
+    const result = HiveListQuerySchema.safeParse(input);
+
+    // then validation fails
+    expect(result.success).toBe(false);
   });
 });
 

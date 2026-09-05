@@ -34,19 +34,34 @@ test.describe("accessibility", () => {
     await expectAccessiblePage(page, testInfo, "Guest registration page");
   });
 
-  test("empty dashboard has no selected-standard violations", async ({ page }, testInfo) => {
+  test("dashboard with no apiaries has no selected-standard violations", async ({ page }, testInfo) => {
+    const user = createAuthenticatedUser();
+    const dashboardPage = createHivesDashboardPage(page);
+
+    // given I am authenticated with no apiaries
+    await visitAsAuthenticatedUser(page, user, [], "token-123", []);
+
+    // when the empty-apiaries dashboard is settled
+    await dashboardPage.expectSignedIn(user);
+    await dashboardPage.emptyApiariesState.waitFor({ state: "visible" });
+
+    // then the empty-apiaries page meets the selected WCAG standards
+    await expectAccessiblePage(page, testInfo, "Dashboard with no apiaries");
+  });
+
+  test("dashboard with no hives has no selected-standard violations", async ({ page }, testInfo) => {
     const user = createAuthenticatedUser();
     const dashboardPage = createHivesDashboardPage(page);
 
     // given I am authenticated with no hives
     await visitAsAuthenticatedUser(page, user);
 
-    // when the empty dashboard is settled
+    // when the no-hives dashboard is settled
     await dashboardPage.expectSignedIn(user);
     await dashboardPage.emptyState.waitFor({ state: "visible" });
 
-    // then the page meets the selected WCAG standards
-    await expectAccessiblePage(page, testInfo, "Empty dashboard");
+    // then the no-hives page meets the selected WCAG standards
+    await expectAccessiblePage(page, testInfo, "Dashboard with no hives");
   });
 
   test("populated dashboard has no selected-standard violations", async ({ page }, testInfo) => {

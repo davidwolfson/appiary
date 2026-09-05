@@ -38,13 +38,19 @@ export class ApiariesStore {
 
   async loadApiaries(): Promise<void> {
     const requestGeneration = ++this.listRequestGeneration;
+    const apiaryIdsAtRequestStart = new Set(this.apiariesState().map(({ apiaryId }) => apiaryId));
     this.loadingState.set(true);
     this.errorState.set(null);
 
     try {
-      const apiaries = [...await this.apiariesService.listApiaries()]
-        .sort((left, right) => left.apiaryId.localeCompare(right.apiaryId));
+      const listedApiaries = await this.apiariesService.listApiaries();
       if (requestGeneration !== this.listRequestGeneration) return;
+
+      const apiariesCreatedWhileLoading = this.apiariesState()
+        .filter(({ apiaryId }) => !apiaryIdsAtRequestStart.has(apiaryId));
+      const createdApiaryIds = new Set(apiariesCreatedWhileLoading.map(({ apiaryId }) => apiaryId));
+      const apiaries = [...listedApiaries.filter(({ apiaryId }) => !createdApiaryIds.has(apiaryId)), ...apiariesCreatedWhileLoading]
+        .sort((left, right) => left.apiaryId.localeCompare(right.apiaryId));
 
       this.apiariesState.set(apiaries);
       const currentSelection = this.selectedApiaryIdState();
@@ -61,6 +67,7 @@ export class ApiariesStore {
       }
     } catch (error) {
       if (requestGeneration !== this.listRequestGeneration) return;
+      if (this.apiariesState().some(({ apiaryId }) => !apiaryIdsAtRequestStart.has(apiaryId))) return;
       this.apiariesState.set([]);
       this.selectedApiaryIdState.set(null);
       this.hivesStore.clearSelection();

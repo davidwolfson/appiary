@@ -10,6 +10,7 @@ export function createHivesDashboardPage(page: Page) {
   const addApiaryButton = hiveControls.getByRole("button", { name: "Add Apiary" });
   const apiarySelect = hiveControls.getByLabel("Apiary", { exact: true });
   const logoutButton = page.getByRole("button", { name: "Logout" });
+  const emptyApiariesState = page.getByRole("heading", { name: "No apiaries yet" });
   const emptyState = page.getByRole("heading", { name: "No hives yet" });
   const addHiveModal = page.getByRole("dialog", { name: "Add Hive" });
   const editHiveModal = page.getByRole("dialog", { name: "Edit Hive" });
@@ -27,6 +28,8 @@ export function createHivesDashboardPage(page: Page) {
   const savingButton = page.getByRole("button", { name: "Saving..." });
   const cancelButton = page.getByRole("button", { name: "Cancel" });
   const alert = page.getByRole("alert");
+  const apiariesLoadingStatus = page.getByRole("status").filter({ hasText: "Loading apiaries..." });
+  const retryApiariesButton = page.getByRole("button", { name: "Retry Apiaries" });
   const loadingStatus = page.getByRole("status").filter({ hasText: "Loading hives..." });
   const hiveCard = (hiveId: string) => page.getByTestId(`hive-card-${hiveId}`);
   const editHiveButton = (hiveId: string) => hiveCard(hiveId).getByRole("button", { name: "Edit Hive" });
@@ -65,6 +68,7 @@ export function createHivesDashboardPage(page: Page) {
     addApiaryButton,
     apiarySelect,
     logoutButton,
+    emptyApiariesState,
     emptyState,
     modal: addHiveModal,
     addHiveModal,
@@ -103,6 +107,8 @@ export function createHivesDashboardPage(page: Page) {
     savingButton,
     cancelButton,
     alert,
+    apiariesLoadingStatus,
+    retryApiariesButton,
     loadingStatus,
     async goto(): Promise<void> {
       if (new URL(page.url()).pathname !== routes.home) {
