@@ -8,6 +8,7 @@ import { runDatabaseMigrations } from "../../../src/utils/migrations.js";
 
 describe("HiveInspectionRepository PostgreSQL integration", () => {
   const accountIds: string[] = [];
+  const apiaryIdsByAccount = new Map<string, string>();
 
   beforeAll(async () => {
     await runDatabaseMigrations();
@@ -180,14 +181,20 @@ describe("HiveInspectionRepository PostgreSQL integration", () => {
     const accountId = randomUUID();
     accountIds.push(accountId);
     await database.query("INSERT INTO accounts (id, name) VALUES ($1, $2)", [accountId, name]);
+    const apiary = await database.query<{ apiary_id: string }>(
+      "INSERT INTO apiaries (account_id, name) VALUES ($1, 'Test Apiary') RETURNING apiary_id",
+      [accountId],
+    );
+    apiaryIdsByAccount.set(accountId, apiary.rows[0].apiary_id);
     return accountId;
   }
 
   async function createHive(accountId: string, name: string): Promise<string> {
     const hiveId = randomUUID();
+    const apiaryId = apiaryIdsByAccount.get(accountId);
     await database.query(
-      "INSERT INTO hives (hive_id, account_id, status, name) VALUES ($1, $2, true, $3)",
-      [hiveId, accountId, name],
+      "INSERT INTO hives (hive_id, account_id, apiary_id, status, name) VALUES ($1, $2, $3, true, $4)",
+      [hiveId, accountId, apiaryId, name],
     );
     return hiveId;
   }

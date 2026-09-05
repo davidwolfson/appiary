@@ -19,8 +19,8 @@ export class HivesApi {
   private readonly http = inject(HttpClient);
   private readonly hivesUrl = `${apiConfig.baseUrl}/hives`;
 
-  listHives() {
-    return this.http.get<ListHivesResponse>(this.hivesUrl);
+  listHives(apiaryId: string) {
+    return this.http.get<ListHivesResponse>(this.hivesUrl, { params: { apiaryId } });
   }
 
   listInspections(hiveId: string, page: number) {

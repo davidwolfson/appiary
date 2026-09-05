@@ -5,7 +5,7 @@ import { mapToHiveViewModel } from "./hives.mapper";
 describe("hives mapper", () => {
   it("maps nested inspections including nullable fields", () => {
     // given a hive response contains a nested inspection with null values
-    const hive: HiveResponse = { hiveId: "hive-1", name: "North Field", status: true, inspections: [{ inspectionId: "inspection-1", hiveId: "hive-1", inspectionDate: "2026-07-30", inspectionTime: "09:15", queenRight: true, eggs: false, larva: true, cappedBrood: false, broodPattern: null, additionalNotes: null }] };
+    const hive: HiveResponse = { hiveId: "hive-1", apiaryId: "apiary-1", name: "North Field", status: true, inspections: [{ inspectionId: "inspection-1", hiveId: "hive-1", inspectionDate: "2026-07-30", inspectionTime: "09:15", queenRight: true, eggs: false, larva: true, cappedBrood: false, broodPattern: null, additionalNotes: null }] };
 
     // when it is mapped for the UI
     const result = mapToHiveViewModel(hive);
@@ -18,7 +18,7 @@ describe("hives mapper", () => {
 
   it("normalizes a missing inspection collection", () => {
     // given an older API payload omits inspections
-    const hive = { hiveId: "hive-1", name: "North Field", status: true } as HiveResponse;
+    const hive = { hiveId: "hive-1", apiaryId: "apiary-1", name: "North Field", status: true } as HiveResponse;
 
     // when it is mapped for the UI
     const result = mapToHiveViewModel(hive);

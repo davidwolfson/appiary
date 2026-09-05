@@ -2,10 +2,35 @@ import { describe, expect, it } from "vitest";
 
 import {
   CreateHiveRequestSchema,
+  HiveListQuerySchema,
   HiveRouteParamsSchema,
   UpdateHiveRequestSchema,
   CreateHiveInspectionRequestSchema,
 } from "../../../src/schemas/hive.schemas.js";
+
+const apiaryId = "00000000-0000-4000-8000-000000000001";
+
+describe("HiveListQuerySchema", () => {
+  it("accepts a valid apiary UUID", () => {
+    // given a hive-list query with a valid apiary UUID
+    const input = { apiaryId };
+
+    // when the hive-list query is parsed
+    const result = HiveListQuerySchema.parse(input);
+
+    // then the apiary ID is returned
+    expect(result).toEqual(input);
+  });
+
+  it.each([{}, { apiaryId: "not-a-uuid" }])("rejects an invalid apiary query in %j", (input) => {
+    // given a hive-list query with a missing or malformed apiary ID
+    // when the hive-list query is parsed safely
+    const result = HiveListQuerySchema.safeParse(input);
+
+    // then validation fails
+    expect(result.success).toBe(false);
+  });
+});
 
 describe("HiveRouteParamsSchema", () => {
   it("accepts a valid hive UUID", () => {
@@ -91,6 +116,7 @@ describe("CreateHiveRequestSchema", () => {
   it("accepts valid input and trims the name", () => {
     // given valid hive input with surrounding whitespace
     const input = {
+      apiaryId,
       name: "  North Field  ",
       status: true,
     };
@@ -100,6 +126,7 @@ describe("CreateHiveRequestSchema", () => {
 
     // then the name is trimmed
     expect(result).toEqual({
+      apiaryId,
       name: "North Field",
       status: true,
     });
@@ -107,7 +134,7 @@ describe("CreateHiveRequestSchema", () => {
 
   it.each(["", "   "])("rejects the invalid name %j", (name) => {
     // given hive input with an empty name
-    const input = { name, status: true };
+    const input = { apiaryId, name, status: true };
 
     // when the input is parsed
     const result = CreateHiveRequestSchema.safeParse(input);
@@ -120,6 +147,7 @@ describe("CreateHiveRequestSchema", () => {
     // given hive input with an overlong name
     const input = {
       name: "a".repeat(101),
+      apiaryId,
       status: true,
     };
 
@@ -132,8 +160,8 @@ describe("CreateHiveRequestSchema", () => {
   });
 
   it.each([
-    { name: "North Field" },
-    { name: "North Field", status: "active" },
+    { apiaryId, name: "North Field" },
+    { apiaryId, name: "North Field", status: "active" },
   ])("rejects the invalid status in %j", (input) => {
     // given hive input with an invalid status
     // when the input is parsed
@@ -148,6 +176,7 @@ describe("UpdateHiveRequestSchema", () => {
   it("accepts valid input and trims the name", () => {
     // given valid hive update input with surrounding whitespace
     const input = {
+      apiaryId,
       name: "  South Field  ",
       status: false,
     };
@@ -157,6 +186,7 @@ describe("UpdateHiveRequestSchema", () => {
 
     // then the name is trimmed
     expect(result).toEqual({
+      apiaryId,
       name: "South Field",
       status: false,
     });
@@ -164,7 +194,7 @@ describe("UpdateHiveRequestSchema", () => {
 
   it.each(["", "   "])("rejects the invalid name %j", (name) => {
     // given hive update input with an empty name
-    const input = { name, status: true };
+    const input = { apiaryId, name, status: true };
 
     // when the input is parsed
     const result = UpdateHiveRequestSchema.safeParse(input);
@@ -177,6 +207,7 @@ describe("UpdateHiveRequestSchema", () => {
     // given hive update input with an overlong name
     const input = {
       name: "a".repeat(101),
+      apiaryId,
       status: true,
     };
 
@@ -189,8 +220,8 @@ describe("UpdateHiveRequestSchema", () => {
   });
 
   it.each([
-    { name: "South Field" },
-    { name: "South Field", status: "active" },
+    { apiaryId, name: "South Field" },
+    { apiaryId, name: "South Field", status: "active" },
   ])("rejects the invalid status in %j", (input) => {
     // given hive update input with an invalid status
     // when the input is parsed

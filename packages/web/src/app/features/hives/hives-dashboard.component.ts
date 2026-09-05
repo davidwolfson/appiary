@@ -2,11 +2,13 @@ import { DOCUMENT } from "@angular/common";
 import { Component, OnInit, computed, inject, signal } from "@angular/core";
 
 import { AuthStore } from "../auth/auth.store";
-import { EditHiveModalComponent } from "./edit-hive-modal.component";
+import { AddApiaryModalComponent } from "./add-apiary-modal.component";
+import { EditHiveModalComponent, type HiveFormValue } from "./edit-hive-modal.component";
 import { HiveCardComponent } from "./hive-card.component";
 import { HiveInspectionModalComponent } from "./hive-inspection-modal.component";
 import { HivesStore } from "./hives.store";
-import type { CreateHiveInspectionRequest, CreateHiveRequest } from "@appiary/types";
+import { ApiariesStore } from "./apiaries.store";
+import type { CreateHiveInspectionRequest } from "@appiary/types";
 import type { HiveInspectionViewModel, HiveViewModel } from "./hives.mapper";
 
 type HiveStatusFilter = "active" | "all" | "inactive";
@@ -14,7 +16,7 @@ type HiveStatusFilter = "active" | "all" | "inactive";
 @Component({
   selector: "app-hives-dashboard",
   standalone: true,
-  imports: [EditHiveModalComponent, HiveCardComponent, HiveInspectionModalComponent],
+  imports: [AddApiaryModalComponent, EditHiveModalComponent, HiveCardComponent, HiveInspectionModalComponent],
   templateUrl: "./hives-dashboard.component.html",
 })
 export class HivesDashboardComponent implements OnInit {
@@ -23,7 +25,9 @@ export class HivesDashboardComponent implements OnInit {
 
   protected readonly authStore = inject(AuthStore);
   protected readonly hivesStore = inject(HivesStore);
+  protected readonly apiariesStore = inject(ApiariesStore);
   protected readonly isModalOpen = signal(false);
+  protected readonly isAddApiaryModalOpen = signal(false);
   protected readonly selectedHive = signal<HiveViewModel | null>(null);
   protected readonly inspectionHive = signal<HiveViewModel | null>(null);
   protected readonly selectedInspection = signal<HiveInspectionViewModel | null>(null);
@@ -35,10 +39,10 @@ export class HivesDashboardComponent implements OnInit {
     if (filter === "all") return hives;
     return hives.filter((hive) => filter === "active" ? hive.status : !hive.status);
   });
-  protected readonly hasOpenModal = computed(() => this.isModalOpen() || this.inspectionHive() !== null);
+  protected readonly hasOpenModal = computed(() => this.isAddApiaryModalOpen() || this.isModalOpen() || this.inspectionHive() !== null);
 
   ngOnInit(): void {
-    void this.hivesStore.loadHives();
+    void this.apiariesStore.loadApiaries();
   }
 
   protected openAddHiveModal(): void {
@@ -48,6 +52,26 @@ export class HivesDashboardComponent implements OnInit {
     this.selectedHive.set(null);
     this.inspectionHive.set(null);
     this.isModalOpen.set(true);
+  }
+
+  protected openAddApiaryModal(): void {
+    this.captureModalTrigger();
+    this.apiariesStore.clearCreateError();
+    this.isAddApiaryModalOpen.set(true);
+  }
+
+  protected selectApiary(event: Event): void {
+    const apiaryId = (event.target as HTMLSelectElement).value;
+    if (apiaryId) void this.apiariesStore.selectApiary(apiaryId);
+  }
+
+  protected retryApiaries(): void {
+    void this.apiariesStore.loadApiaries();
+  }
+
+  protected retryHives(): void {
+    const apiaryId = this.apiariesStore.selectedApiaryId();
+    if (apiaryId) void this.hivesStore.loadHives(apiaryId);
   }
 
   protected openEditHiveModal(hive: HiveViewModel): void {
@@ -81,13 +105,26 @@ export class HivesDashboardComponent implements OnInit {
     this.closeModal();
   }
 
-  protected async saveHive(payload: CreateHiveRequest): Promise<void> {
+  protected closeAddApiaryModal(): void {
+    this.closeModal();
+  }
+
+  protected async saveApiary(payload: { name: string }): Promise<void> {
+    try {
+      await this.apiariesStore.createApiary(payload);
+      this.closeModal();
+    } catch {
+      // Store state carries the create error for the modal.
+    }
+  }
+
+  protected async saveHive(formValue: HiveFormValue): Promise<void> {
     try {
       const selectedHive = this.selectedHive();
       if (selectedHive) {
-        await this.hivesStore.updateHive(selectedHive.hiveId, payload);
+        await this.hivesStore.updateHive(selectedHive.hiveId, formValue);
       } else {
-        await this.hivesStore.createHive(payload);
+        await this.hivesStore.createHive(formValue);
       }
       this.closeModal();
     } catch {
@@ -125,6 +162,7 @@ export class HivesDashboardComponent implements OnInit {
   private closeModal(): void {
     const trigger = this.modalTrigger;
     this.isModalOpen.set(false);
+    this.isAddApiaryModalOpen.set(false);
     this.selectedHive.set(null);
     this.inspectionHive.set(null);
     this.selectedInspection.set(null);

@@ -9,6 +9,7 @@ export function mapToHiveInspectionResponse(result: HiveInspectionResult): HiveI
 export function mapToHiveResponse(result: HiveResult): HiveResponse {
   return {
     hiveId: result.hiveId,
+    apiaryId: result.apiaryId,
     name: result.name,
     status: result.status,
     inspections: result.inspections.map(mapToHiveInspectionResponse),

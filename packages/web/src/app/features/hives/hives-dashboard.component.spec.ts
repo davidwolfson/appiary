@@ -6,17 +6,36 @@ import type { CreateHiveInspectionRequest } from "@appiary/types";
 import { AuthStore } from "../auth/auth.store";
 import { HivesDashboardComponent } from "./hives-dashboard.component";
 import { HivesStore } from "./hives.store";
+import { ApiariesStore } from "./apiaries.store";
+import type { ApiaryViewModel } from "./apiaries.mapper";
 import type { HiveViewModel } from "./hives.mapper";
 
 describe("HivesDashboardComponent", () => {
-  type TestHive = Omit<HiveViewModel, "inspections"> & Partial<Pick<HiveViewModel, "inspections">>;
+  type TestHive = Omit<HiveViewModel, "apiaryId" | "inspections"> & Partial<Pick<HiveViewModel, "apiaryId" | "inspections">>;
   let fixture: ComponentFixture<HivesDashboardComponent>;
   let hivesState: WritableSignal<TestHive[]>;
   let loadingState: WritableSignal<boolean>;
   let errorState: WritableSignal<string | null>;
   let inspectionErrorState: WritableSignal<string | null>;
   let hasHivesState: WritableSignal<boolean>;
+  let apiariesState: WritableSignal<ApiaryViewModel[]>;
+  let apiariesLoadingState: WritableSignal<boolean>;
+  let apiariesErrorState: WritableSignal<string | null>;
+  let apiaryCreateErrorState: WritableSignal<string | null>;
   let modalOpen: () => HTMLElement | null;
+  let apiariesStore: {
+    apiaries: () => ApiaryViewModel[];
+    clearCreateError: ReturnType<typeof vi.fn>;
+    createApiary: ReturnType<typeof vi.fn>;
+    createError: () => string | null;
+    error: () => string | null;
+    hasApiaries: () => boolean;
+    isCreating: ReturnType<typeof vi.fn>;
+    isLoading: () => boolean;
+    loadApiaries: ReturnType<typeof vi.fn>;
+    selectApiary: ReturnType<typeof vi.fn>;
+    selectedApiaryId: ReturnType<typeof vi.fn>;
+  };
   let hivesStore: {
     clearCreateError: ReturnType<typeof vi.fn>;
     clearUpdateError: ReturnType<typeof vi.fn>;
@@ -47,6 +66,10 @@ describe("HivesDashboardComponent", () => {
     errorState = signal<string | null>(null);
     inspectionErrorState = signal<string | null>(null);
     hasHivesState = signal(false);
+    apiariesState = signal([{ apiaryId: "apiary-1", name: "Home Apiary", status: true }]);
+    apiariesLoadingState = signal(false);
+    apiariesErrorState = signal<string | null>(null);
+    apiaryCreateErrorState = signal<string | null>(null);
     hivesStore = {
       clearCreateError: vi.fn(),
       clearUpdateError: vi.fn(),
@@ -70,6 +93,19 @@ describe("HivesDashboardComponent", () => {
       updateHive: vi.fn().mockResolvedValue(undefined),
       createInspection: vi.fn().mockResolvedValue(undefined),
     };
+    apiariesStore = {
+      apiaries: () => apiariesState(),
+      clearCreateError: vi.fn(() => apiaryCreateErrorState.set(null)),
+      createApiary: vi.fn().mockResolvedValue(undefined),
+      createError: () => apiaryCreateErrorState(),
+      error: () => apiariesErrorState(),
+      hasApiaries: () => apiariesState().length > 0,
+      isCreating: vi.fn(() => false),
+      isLoading: () => apiariesLoadingState(),
+      loadApiaries: vi.fn().mockResolvedValue(undefined),
+      selectApiary: vi.fn().mockResolvedValue(undefined),
+      selectedApiaryId: vi.fn(() => "apiary-1"),
+    };
     modalOpen = () => fixture.nativeElement.querySelector("[role='dialog']");
 
     await TestBed.configureTestingModule({
@@ -88,6 +124,7 @@ describe("HivesDashboardComponent", () => {
           },
         },
         { provide: HivesStore, useValue: hivesStore },
+        { provide: ApiariesStore, useValue: apiariesStore },
       ],
     }).compileComponents();
 
@@ -96,11 +133,11 @@ describe("HivesDashboardComponent", () => {
     await fixture.whenStable();
   });
 
-  it("loads hives on render", () => {
+  it("loads apiaries on render", () => {
     // given the dashboard fixture is created
     // when the initial dashboard view renders
-    // then the store is asked to load hives
-    expect(hivesStore.loadHives).toHaveBeenCalled();
+    // then the apiary store starts dashboard initialization
+    expect(apiariesStore.loadApiaries).toHaveBeenCalled();
   });
 
   it("displays loading state", () => {
@@ -138,9 +175,125 @@ describe("HivesDashboardComponent", () => {
     // then both controls are grouped before the hive display and the add action has visible text
     expect(controls.classList.contains("card")).toBe(true);
     expect(filter).not.toBeNull();
+    expect(controls.querySelector("#apiary-filter")).not.toBeNull();
+    expect(controls.querySelector("[aria-label='Add Apiary']")).not.toBeNull();
     expect(addButton.textContent).toContain("Add Hive");
     expect(icon?.getAttribute("aria-hidden")).toBe("true");
     expect(controls.compareDocumentPosition(emptyState) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
+  it("reloads scoped hives when the apiary selection changes", () => {
+    // given two apiaries are available in the controls card
+    apiariesState.set([
+      { apiaryId: "apiary-1", name: "Home Apiary", status: true },
+      { apiaryId: "apiary-2", name: "Orchard", status: false },
+    ]);
+    fixture.detectChanges();
+
+    // when the second apiary is selected
+    const select = fixture.nativeElement.querySelector("#apiary-filter") as HTMLSelectElement;
+    select.value = "apiary-2";
+    select.dispatchEvent(new Event("change"));
+
+    // then selection delegates to the apiary store and inactive status is visible
+    expect(apiariesStore.selectApiary).toHaveBeenCalledWith("apiary-2");
+    expect(select.options[1]?.textContent).toContain("Orchard (Inactive)");
+  });
+
+  it("shows apiary failure separately from hive failure", () => {
+    // given loading the apiary list failed while a previous hive error also exists
+    apiariesErrorState.set("Apiaries unavailable");
+    errorState.set("Hives unavailable");
+
+    // when the dashboard view is refreshed
+    fixture.detectChanges();
+
+    // then only the actionable apiary-list failure is presented
+    expect(fixture.nativeElement.textContent).toContain("Unable to load apiaries: Apiaries unavailable");
+    expect(fixture.nativeElement.textContent).not.toContain("Hives unavailable");
+  });
+
+  it("offers scoped retries for apiary-list and hive-list failures", () => {
+    // given the apiary list has failed
+    apiariesErrorState.set("Apiaries unavailable");
+    fixture.detectChanges();
+
+    // when its retry action is used
+    (fixture.nativeElement.querySelector("[aria-label='Retry Apiaries']") as HTMLButtonElement).click();
+
+    // then the apiary list is requested again
+    expect(apiariesStore.loadApiaries).toHaveBeenCalledTimes(2);
+
+    // given the apiary list recovers but the selected apiary's hives fail
+    apiariesErrorState.set(null);
+    errorState.set("Hives unavailable");
+    fixture.detectChanges();
+
+    // when its retry action is used
+    (fixture.nativeElement.querySelector("[aria-label='Retry Hives']") as HTMLButtonElement).click();
+
+    // then only the selected apiary's hives are requested again
+    expect(hivesStore.loadHives).toHaveBeenCalledWith("apiary-1");
+  });
+
+  it("prompts for an apiary and disables Add Hive when none exist", () => {
+    // given the account has no apiaries
+    apiariesState.set([]);
+
+    // when the dashboard view is refreshed
+    fixture.detectChanges();
+
+    // then the empty-apiary guidance is shown and adding a hive is unavailable
+    expect(fixture.nativeElement.textContent).toContain("No apiaries yet");
+    expect(fixture.nativeElement.textContent).toContain("Create your first apiary before adding hives.");
+    expect((fixture.nativeElement.querySelector("[aria-label='Add Hive']") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("creates an apiary from a modal and restores focus to its trigger", async () => {
+    // given the Add Apiary button opened the modal
+    const addApiaryButton = fixture.nativeElement.querySelector("[aria-label='Add Apiary']") as HTMLButtonElement;
+    addApiaryButton.focus();
+    addApiaryButton.click();
+    fixture.detectChanges();
+
+    // when a valid apiary is saved
+    const component = fixture.componentInstance as never as {
+      saveApiary: (payload: { name: string }) => Promise<void>;
+    };
+    await component.saveApiary({ name: "Orchard" });
+    fixture.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // then the apiary store receives it, the modal closes, and focus returns to the trigger
+    expect(apiariesStore.clearCreateError).toHaveBeenCalled();
+    expect(apiariesStore.createApiary).toHaveBeenCalledWith({ name: "Orchard" });
+    expect(modalOpen()).toBeNull();
+    expect(document.activeElement).toBe(addApiaryButton);
+  });
+
+  it("keeps the Add Apiary modal and form open after an API failure", async () => {
+    // given an open modal contains a name and apiary creation will fail
+    apiariesStore.createApiary.mockImplementationOnce(async () => {
+      apiaryCreateErrorState.set("Apiary name already exists");
+      throw new Error("failed");
+    });
+    fixture.nativeElement.querySelector("[aria-label='Add Apiary']").click();
+    fixture.detectChanges();
+    const nameInput = fixture.nativeElement.querySelector("#apiary-name") as HTMLInputElement;
+    nameInput.value = "Orchard";
+    nameInput.dispatchEvent(new Event("input"));
+
+    // when saving fails
+    const component = fixture.componentInstance as never as {
+      saveApiary: (payload: { name: string }) => Promise<void>;
+    };
+    await component.saveApiary({ name: "Orchard" });
+    fixture.detectChanges();
+
+    // then the modal remains open with the entered value and create-specific error
+    expect(modalOpen()).not.toBeNull();
+    expect((fixture.nativeElement.querySelector("#apiary-name") as HTMLInputElement).value).toBe("Orchard");
+    expect(fixture.nativeElement.textContent).toContain("Apiary name already exists");
   });
 
   it("shows only active hives by default", () => {
@@ -297,9 +450,9 @@ describe("HivesDashboardComponent", () => {
 
     // when the hive is saved successfully
     const component = fixture.componentInstance as never as {
-      saveHive: (payload: { name: string; status: boolean }) => Promise<void>;
+      saveHive: (payload: { apiaryId: string; name: string; status: boolean }) => Promise<void>;
     };
-    await component.saveHive({ name: "North Field Updated", status: false });
+    await component.saveHive({ apiaryId: "apiary-1", name: "North Field Updated", status: false });
     fixture.detectChanges();
     await fixture.whenStable();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -315,20 +468,24 @@ describe("HivesDashboardComponent", () => {
 
     // when valid hive details are submitted
     const component = fixture.componentInstance as never as {
-      saveHive: (payload: { name: string; status: boolean }) => Promise<void>;
+      saveHive: (payload: { apiaryId: string; name: string; status: boolean }) => Promise<void>;
     };
-    await component.saveHive({ name: "North Field", status: true });
+    await component.saveHive({ apiaryId: "apiary-1", name: "North Field", status: true });
     fixture.detectChanges();
 
     // then the store creates the hive and the modal closes
-    expect(hivesStore.createHive).toHaveBeenCalledWith({ name: "North Field", status: true });
+    expect(hivesStore.createHive).toHaveBeenCalledWith({ apiaryId: "apiary-1", name: "North Field", status: true });
     expect(modalOpen()).toBeNull();
   });
 
   it("opens the Edit Hive modal from a hive card", () => {
     // given the store contains an inactive hive
+    apiariesState.set([
+      { apiaryId: "apiary-1", name: "Home Apiary", status: true },
+      { apiaryId: "apiary-2", name: "Orchard", status: false },
+    ]);
     hivesState.set([
-      { hiveId: "hive-1", name: "North Field", status: false },
+      { hiveId: "hive-1", apiaryId: "apiary-2", name: "North Field", status: false },
     ]);
     hasHivesState.set(true);
     fixture.detectChanges();
@@ -346,14 +503,20 @@ describe("HivesDashboardComponent", () => {
     expect(hivesStore.clearCreateError).toHaveBeenCalled();
     expect(hivesStore.clearUpdateError).toHaveBeenCalled();
     expect(fixture.nativeElement.textContent).toContain("Edit Hive");
+    expect((fixture.nativeElement.querySelector("#hive-apiary") as HTMLSelectElement).value).toBe("apiary-2");
+    expect(fixture.nativeElement.textContent).toContain("Orchard (Inactive)");
     expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).value).toBe("North Field");
     expect((fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("Inactive");
   });
 
   it("passes successful edit modal submission to update, not create", async () => {
     // given the Edit Hive modal is open for a selected hive
+    apiariesState.set([
+      { apiaryId: "apiary-1", name: "Home Apiary", status: true },
+      { apiaryId: "apiary-2", name: "Orchard", status: true },
+    ]);
     hivesState.set([
-      { hiveId: "hive-1", name: "North Field", status: true },
+      { hiveId: "hive-1", apiaryId: "apiary-1", name: "North Field", status: true },
     ]);
     hasHivesState.set(true);
     fixture.detectChanges();
@@ -362,13 +525,14 @@ describe("HivesDashboardComponent", () => {
 
     // when valid hive details are submitted
     const component = fixture.componentInstance as never as {
-      saveHive: (payload: { name: string; status: boolean }) => Promise<void>;
+      saveHive: (payload: { apiaryId: string; name: string; status: boolean }) => Promise<void>;
     };
-    await component.saveHive({ name: "North Field Updated", status: false });
+    await component.saveHive({ apiaryId: "apiary-2", name: "North Field Updated", status: false });
     fixture.detectChanges();
 
     // then the store updates the selected hive and the modal closes
     expect(hivesStore.updateHive).toHaveBeenCalledWith("hive-1", {
+      apiaryId: "apiary-2",
       name: "North Field Updated",
       status: false,
     });
@@ -390,9 +554,9 @@ describe("HivesDashboardComponent", () => {
 
     // when the edit submission fails
     const component = fixture.componentInstance as never as {
-      saveHive: (payload: { name: string; status: boolean }) => Promise<void>;
+      saveHive: (payload: { apiaryId: string; name: string; status: boolean }) => Promise<void>;
     };
-    await component.saveHive({ name: "North Field", status: true });
+    await component.saveHive({ apiaryId: "apiary-1", name: "North Field", status: true });
     fixture.detectChanges();
 
     // then the modal remains open and shows the update error
@@ -441,9 +605,9 @@ describe("HivesDashboardComponent", () => {
     fixture.detectChanges();
 
     const component = fixture.componentInstance as never as {
-      saveHive: (payload: { name: string; status: boolean }) => Promise<void>;
+      saveHive: (payload: { apiaryId: string; name: string; status: boolean }) => Promise<void>;
     };
-    await component.saveHive({ name: "North Field Updated", status: false });
+    await component.saveHive({ apiaryId: "apiary-1", name: "North Field Updated", status: false });
     fixture.detectChanges();
 
     // when the Add Hive modal is opened
@@ -452,6 +616,7 @@ describe("HivesDashboardComponent", () => {
 
     // then add mode contains its default values
     expect(fixture.nativeElement.textContent).toContain("Add Hive");
+    expect((fixture.nativeElement.querySelector("#hive-apiary") as HTMLSelectElement).value).toBe("apiary-1");
     expect((fixture.nativeElement.querySelector("#hive-name") as HTMLInputElement).value).toBe("");
     expect((fixture.nativeElement.querySelector("#hive-status") as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("Active");
   });

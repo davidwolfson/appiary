@@ -129,6 +129,7 @@ app-hive-card {
   flex: 1 1 14rem;
 }
 
+.apiary-filter-control,
 .hive-status-filter-control {
   width: 100%;
   max-width: 18rem;

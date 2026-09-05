@@ -6,6 +6,8 @@ const registerMock = vi.hoisted(() => vi.fn());
 const loginMock = vi.hoisted(() => vi.fn());
 const logoutMock = vi.hoisted(() => vi.fn());
 const getAuthenticatedUserMock = vi.hoisted(() => vi.fn());
+const listApiariesForAuthenticatedUserMock = vi.hoisted(() => vi.fn());
+const createApiaryForAuthenticatedUserMock = vi.hoisted(() => vi.fn());
 const listForAuthenticatedUserMock = vi.hoisted(() => vi.fn());
 const createForAuthenticatedUserMock = vi.hoisted(() => vi.fn());
 const updateForAuthenticatedUserMock = vi.hoisted(() => vi.fn());
@@ -30,8 +32,19 @@ vi.mock("../../src/services/hive.service.js", () => ({
   },
 }));
 
+vi.mock("../../src/services/apiary.service.js", () => ({
+  ApiaryService: class {
+    listForAuthenticatedUser = listApiariesForAuthenticatedUserMock;
+    createForAuthenticatedUser = createApiaryForAuthenticatedUserMock;
+  },
+}));
+
 vi.mock("../../src/repositories/account.repository.js", () => ({
   AccountRepository: class {},
+}));
+
+vi.mock("../../src/repositories/apiary.repository.js", () => ({
+  ApiaryRepository: class {},
 }));
 
 vi.mock("../../src/repositories/user.repository.js", () => ({
@@ -57,11 +70,14 @@ vi.mock("../../src/middleware/auth.middleware.js", () => ({
 import { AppError } from "../../src/utils/app-error.js";
 
 describe("createApp", () => {
+  const apiaryId = "00000000-0000-4000-8000-000000000001";
   beforeEach(() => {
     registerMock.mockReset();
     loginMock.mockReset();
     logoutMock.mockReset();
     getAuthenticatedUserMock.mockReset();
+    listApiariesForAuthenticatedUserMock.mockReset();
+    createApiaryForAuthenticatedUserMock.mockReset();
     listForAuthenticatedUserMock.mockReset();
     createForAuthenticatedUserMock.mockReset();
     updateForAuthenticatedUserMock.mockReset();
@@ -289,12 +305,113 @@ describe("createApp", () => {
     });
   });
 
+  it("lists apiaries through the protected apiaries route", async () => {
+    // given the apiary service returns active and inactive apiaries
+    listApiariesForAuthenticatedUserMock.mockResolvedValue({ apiaries: [
+      { apiaryId: "00000000-0000-4000-8000-000000000001", name: "North Yard", status: true },
+      { apiaryId: "00000000-0000-4000-8000-000000000002", name: "South Yard", status: false },
+    ] });
+
+    // when the protected apiary collection is requested
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/apiaries`);
+
+      // then the route returns the public list contract for the authenticated user
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({ apiaries: [
+        { apiaryId: "00000000-0000-4000-8000-000000000001", name: "North Yard", status: true },
+        { apiaryId: "00000000-0000-4000-8000-000000000002", name: "South Yard", status: false },
+      ] });
+      expect(requireAuthMock).toHaveBeenCalled();
+      expect(listApiariesForAuthenticatedUserMock).toHaveBeenCalledWith("user-1");
+    });
+  });
+
+  it("creates apiaries through the protected apiaries route", async () => {
+    // given the apiary service creates an active apiary
+    createApiaryForAuthenticatedUserMock.mockResolvedValue({
+      apiary: { apiaryId: "00000000-0000-4000-8000-000000000001", name: "North Yard", status: true },
+    });
+
+    // when a padded valid name is posted
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/apiaries`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "  North Yard  " }),
+      });
+
+      // then the route returns the create contract and forwards normalized input
+      expect(response.status).toBe(201);
+      await expect(response.json()).resolves.toEqual({
+        apiary: { apiaryId: "00000000-0000-4000-8000-000000000001", name: "North Yard", status: true },
+      });
+      expect(createApiaryForAuthenticatedUserMock).toHaveBeenCalledWith({
+        authenticatedUserId: "user-1",
+        name: "North Yard",
+      });
+    });
+  });
+
+  it("rejects invalid apiary requests before calling the service", async () => {
+    // given an apiary name contains only whitespace
+    // when the invalid request is posted
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/apiaries`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "   " }),
+      });
+
+      // then centralized validation rejects it before service execution
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({ message: "Validation failed" });
+      expect(createApiaryForAuthenticatedUserMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("maps apiary duplicate-name conflicts to the HTTP contract", async () => {
+    // given apiary creation fails with a domain conflict
+    createApiaryForAuthenticatedUserMock.mockRejectedValue(new AppError(409, "Apiary name already exists"));
+
+    // when the duplicate name is posted
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/apiaries`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "North Yard" }),
+      });
+
+      // then the stable conflict response is returned
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toEqual({ message: "Apiary name already exists" });
+    });
+  });
+
+  it("rejects unauthenticated apiary requests", async () => {
+    // given authentication rejects the request
+    requireAuthMock.mockImplementation((_req, _res, next) => {
+      next(new AppError(401, "Unauthorized"));
+    });
+
+    // when the apiary collection is requested
+    await withApp(async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/apiaries`);
+
+      // then the route returns unauthorized without invoking the service
+      expect(response.status).toBe(401);
+      await expect(response.json()).resolves.toEqual({ message: "Unauthorized" });
+      expect(listApiariesForAuthenticatedUserMock).not.toHaveBeenCalled();
+    });
+  });
+
   it("lists hives through the protected hives route", async () => {
     // given an authenticated user has a hive
     listForAuthenticatedUserMock.mockResolvedValue({
       hives: [
         {
           hiveId: "hive-1",
+          apiaryId,
           name: "North Field",
           status: true,
           accountId: "account-1",
@@ -305,7 +422,7 @@ describe("createApp", () => {
 
     // when the protected hives route is requested
     await withApp(async (baseUrl) => {
-      const response = await fetch(`${baseUrl}/api/hives`);
+      const response = await fetch(`${baseUrl}/api/hives?apiaryId=${apiaryId}`);
 
       // then the route returns that user's hives
       expect(response.status).toBe(200);
@@ -313,6 +430,7 @@ describe("createApp", () => {
         hives: [
           {
             hiveId: "hive-1",
+            apiaryId,
             name: "North Field",
             status: true,
             inspections: [],
@@ -320,7 +438,34 @@ describe("createApp", () => {
         ],
       });
       expect(requireAuthMock).toHaveBeenCalled();
-      expect(listForAuthenticatedUserMock).toHaveBeenCalledWith("user-1");
+      expect(listForAuthenticatedUserMock).toHaveBeenCalledWith("user-1", apiaryId);
+    });
+  });
+
+  it.each(["", "?apiaryId=not-a-uuid"])("rejects a missing or malformed hive-list apiary query: %s", async (query) => {
+    // given a hive-list request with a missing or malformed apiary query
+    await withApp(async (baseUrl) => {
+      // when the protected hive-list route is requested
+      const response = await fetch(`${baseUrl}/api/hives${query}`);
+
+      // then validation fails before the hive service is called
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({ message: "Validation failed" });
+      expect(listForAuthenticatedUserMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("maps an unowned apiary to not found when listing hives", async () => {
+    // given the hive service cannot find the requested apiary for the authenticated user
+    listForAuthenticatedUserMock.mockRejectedValue(new AppError(404, "Apiary not found"));
+
+    await withApp(async (baseUrl) => {
+      // when the protected hive-list route is requested for that apiary
+      const response = await fetch(`${baseUrl}/api/hives?apiaryId=${apiaryId}`);
+
+      // then the route returns the non-disclosing not-found response
+      expect(response.status).toBe(404);
+      await expect(response.json()).resolves.toEqual({ message: "Apiary not found" });
     });
   });
 
@@ -329,6 +474,7 @@ describe("createApp", () => {
     createForAuthenticatedUserMock.mockResolvedValue({
       hive: {
         hiveId: "hive-1",
+        apiaryId,
         name: "North Field",
         status: true,
         accountId: "account-1",
@@ -344,6 +490,7 @@ describe("createApp", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
+          apiaryId,
           name: "  North Field  ",
           status: true,
           inspections: [],
@@ -355,6 +502,7 @@ describe("createApp", () => {
       await expect(response.json()).resolves.toEqual({
         hive: {
           hiveId: "hive-1",
+          apiaryId,
           name: "North Field",
           status: true,
           inspections: [],
@@ -362,6 +510,7 @@ describe("createApp", () => {
       });
       expect(createForAuthenticatedUserMock).toHaveBeenCalledWith({
         authenticatedUserId: "user-1",
+        apiaryId,
         name: "North Field",
         status: true,
       });
@@ -404,6 +553,7 @@ describe("createApp", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
+          apiaryId,
           name: "North Field",
           status: true,
         }),
@@ -422,6 +572,7 @@ describe("createApp", () => {
     updateForAuthenticatedUserMock.mockResolvedValue({
       hive: {
         hiveId: "37a9a6dc-3030-4be5-9694-f65c5c5f6d1e",
+        apiaryId,
         name: "South Field",
         status: false,
         accountId: "account-1",
@@ -448,6 +599,7 @@ describe("createApp", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
+          apiaryId,
           name: "  South Field  ",
           status: false,
           inspections: [],
@@ -459,6 +611,7 @@ describe("createApp", () => {
       await expect(response.json()).resolves.toEqual({
         hive: {
           hiveId: "37a9a6dc-3030-4be5-9694-f65c5c5f6d1e",
+          apiaryId,
           name: "South Field",
           status: false,
           inspections: [{
@@ -478,6 +631,7 @@ describe("createApp", () => {
       expect(updateForAuthenticatedUserMock).toHaveBeenCalledWith({
         authenticatedUserId: "user-1",
         hiveId: "37a9a6dc-3030-4be5-9694-f65c5c5f6d1e",
+        apiaryId,
         name: "South Field",
         status: false,
       });
@@ -518,6 +672,7 @@ describe("createApp", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
+          apiaryId,
           name: "South Field",
           status: false,
         }),
@@ -544,6 +699,7 @@ describe("createApp", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
+          apiaryId,
           name: "South Field",
           status: false,
         }),
@@ -569,6 +725,7 @@ describe("createApp", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
+          apiaryId,
           name: "North Field",
           status: true,
         }),
@@ -596,6 +753,7 @@ describe("createApp", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
+          apiaryId,
           name: "South Field",
           status: false,
         }),

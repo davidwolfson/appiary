@@ -15,6 +15,20 @@
     <section class="card hive-controls-card mb-3" aria-label="Hive controls">
       <div class="card-body d-flex flex-column flex-md-row align-items-md-end justify-content-between gap-3">
         <div class="hive-controls-filters d-flex flex-wrap gap-3">
+          <div class="apiary-filter-control">
+            <label class="form-label" for="apiary-filter">Apiary</label>
+            <select
+              class="form-select"
+              id="apiary-filter"
+              [value]="apiariesStore.selectedApiaryId() ?? ''"
+              [disabled]="apiariesStore.isLoading() || !apiariesStore.hasApiaries()"
+              (change)="selectApiary($event)"
+            >
+              @for (apiary of apiariesStore.apiaries(); track apiary.apiaryId) {
+                <option [value]="apiary.apiaryId">{{ apiary.name }}{{ apiary.status ? "" : " (Inactive)" }}</option>
+              }
+            </select>
+          </div>
           <div class="hive-status-filter-control">
             <label class="form-label" for="hive-status-filter">Hive Status</label>
             <select
@@ -32,7 +46,11 @@
         </div>
 
         <div class="hive-controls-actions d-flex flex-wrap gap-2">
-          <button class="btn btn-dark add-hive-button" type="button" aria-label="Add Hive" (click)="openAddHiveModal()">
+          <button class="btn btn-outline-secondary" type="button" aria-label="Add Apiary" (click)="openAddApiaryModal()">
+            <span aria-hidden="true">+</span>
+            <span>Add Apiary</span>
+          </button>
+          <button class="btn btn-dark add-hive-button" type="button" aria-label="Add Hive" (click)="openAddHiveModal()" [disabled]="!apiariesStore.hasApiaries()">
             <span class="add-hive-icon" aria-hidden="true">+</span>
             <span>Add Hive</span>
           </button>
@@ -40,11 +58,26 @@
       </div>
     </section>
 
-    @if (hivesStore.isLoading()) {
+    @if (apiariesStore.isLoading()) {
+      <div class="alert alert-info" role="status">Loading apiaries...</div>
+    } @else if (apiariesStore.error()) {
+      <div class="alert alert-danger d-flex flex-wrap align-items-center justify-content-between gap-2" role="alert">
+        <span>Unable to load apiaries: {{ apiariesStore.error() }}</span>
+        <button class="btn btn-outline-secondary btn-sm" type="button" aria-label="Retry Apiaries" (click)="retryApiaries()">Retry Apiaries</button>
+      </div>
+    } @else if (!apiariesStore.hasApiaries()) {
+      <div class="empty-state border rounded-2 p-4 p-md-5">
+        <h2 class="h4 mb-2">No apiaries yet</h2>
+        <p class="text-secondary mb-0">Create your first apiary before adding hives.</p>
+      </div>
+    } @else if (hivesStore.isLoading()) {
       <div class="alert alert-info" role="status">Loading hives...</div>
     } @else {
       @if (hivesStore.error()) {
-        <div class="alert alert-danger" role="alert">{{ hivesStore.error() }}</div>
+        <div class="alert alert-danger d-flex flex-wrap align-items-center justify-content-between gap-2" role="alert">
+          <span>Unable to load hives: {{ hivesStore.error() }}</span>
+          <button class="btn btn-outline-secondary btn-sm" type="button" aria-label="Retry Hives" (click)="retryHives()">Retry Hives</button>
+        </div>
       } @else {
         @if (!hivesStore.hasHives()) {
           <div class="empty-state border rounded-2 p-4 p-md-5">
@@ -83,11 +116,22 @@
 @if (isModalOpen()) {
   <app-edit-hive-modal
     [hive]="selectedHive()"
+    [apiaries]="apiariesStore.apiaries()"
+    [currentApiaryId]="apiariesStore.selectedApiaryId()"
     [isSaving]="selectedHive() ? hivesStore.isUpdating() : hivesStore.isCreating()"
     [error]="selectedHive() ? hivesStore.updateError() : hivesStore.createError()"
     (save)="saveHive($event)"
     (closed)="closeAddHiveModal()"
   ></app-edit-hive-modal>
+}
+
+@if (isAddApiaryModalOpen()) {
+  <app-add-apiary-modal
+    [isSaving]="apiariesStore.isCreating()"
+    [error]="apiariesStore.createError()"
+    (save)="saveApiary($event)"
+    (closed)="closeAddApiaryModal()"
+  ></app-add-apiary-modal>
 }
 
 @if (inspectionHive(); as hive) {

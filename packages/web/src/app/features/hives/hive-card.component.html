@@ -1,42 +1,44 @@
 <article
-  class="card hive-card h-100 border-0 shadow-sm position-relative"
+  class="card hive-card h-100 border-0 shadow-sm"
   [attr.data-testid]="'hive-card-' + hive.hiveId"
 >
-  <div class="position-absolute top-0 end-0 m-2 d-flex gap-2">
-    <button class="btn btn-primary btn-sm" type="button" [attr.aria-label]="'Add Inspection for hive card ' + (cardIndex + 1)" (click)="inspectHive()">
-      <span aria-hidden="true">+</span>
-      <span>Add Inspection</span>
-    </button>
-    <button class="btn btn-light btn-sm edit-hive-button" type="button" [attr.aria-label]="'Edit Hive for hive card ' + (cardIndex + 1)" (click)="editHive()">
-      <span aria-hidden="true">&#9998;</span>
-      <span>Edit Hive</span>
-    </button>
-  </div>
-
-  <div class="card-body d-flex flex-column gap-3 pe-5">
-    <div>
-      <div class="d-flex align-items-center gap-2 mb-2">
-        <p class="brand-mark mb-0">Hive</p>
-        @if (hive.status) {
-          <span
-            class="d-inline-flex align-items-center justify-content-center rounded-circle bg-success text-white"
-            style="width: 1.25rem; height: 1.25rem"
-            role="img"
-            aria-label="Active"
-            title="Active"
-          >&#10003;</span>
-        } @else {
-          <span
-            class="d-inline-flex align-items-center justify-content-center text-secondary"
-            style="width: 1.25rem; height: 1.25rem"
-            role="img"
-            aria-label="Inactive"
-            title="Inactive"
-          >&#8722;</span>
-        }
+  <div class="card-body d-flex flex-column gap-3">
+    <header class="d-flex flex-column gap-3">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <p class="brand-mark mb-0">Hive</p>
+          @if (hive.status) {
+            <span
+              class="d-inline-flex align-items-center justify-content-center rounded-circle bg-success text-white"
+              style="width: 1.25rem; height: 1.25rem"
+              role="img"
+              aria-label="Active"
+              title="Active"
+            >&#10003;</span>
+          } @else {
+            <span
+              class="d-inline-flex align-items-center justify-content-center text-secondary"
+              style="width: 1.25rem; height: 1.25rem"
+              role="img"
+              aria-label="Inactive"
+              title="Inactive"
+            >&#8722;</span>
+          }
+        </div>
+        <h2 class="h5 mb-0 text-break">{{ hive.name }}</h2>
       </div>
-      <h2 class="h5 mb-0 text-break">{{ hive.name }}</h2>
-    </div>
+
+      <div class="hive-card-actions d-flex flex-wrap gap-2">
+        <button class="btn btn-primary btn-sm" type="button" [attr.aria-label]="'Add Inspection for hive card ' + (cardIndex + 1)" (click)="inspectHive()">
+          <span aria-hidden="true">+</span>
+          <span>Add Inspection</span>
+        </button>
+        <button class="btn btn-light btn-sm edit-hive-button" type="button" [attr.aria-label]="'Edit Hive for hive card ' + (cardIndex + 1)" (click)="editHive()">
+          <span aria-hidden="true">&#9998;</span>
+          <span>Edit Hive</span>
+        </button>
+      </div>
+    </header>
 
     @if (inspectionPaginationError) {
       <div class="alert alert-danger mb-0" role="alert">

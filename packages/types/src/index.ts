@@ -1,4 +1,11 @@
 export type {
+  ApiaryResponse,
+  CreateApiaryRequest,
+  CreateApiaryResponse,
+  ListApiariesResponse,
+} from "./apiary";
+
+export type {
   BroodPattern,
   CreateHiveInspectionRequest,
   CreateHiveInspectionResponse,

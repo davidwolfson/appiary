@@ -15,12 +15,14 @@ export interface HiveInspectionResult {
 
 export interface CreateHiveAction {
   authenticatedUserId: string;
+  apiaryId: string;
   name: string;
   status: boolean;
 }
 
 export interface HiveResult {
   hiveId: string;
+  apiaryId: string;
   name: string;
   status: boolean;
   inspections: HiveInspectionResult[];
@@ -63,6 +65,7 @@ export interface CreateHiveResult {
 export interface UpdateHiveAction {
   authenticatedUserId: string;
   hiveId: string;
+  apiaryId: string;
   name: string;
   status: boolean;
 }

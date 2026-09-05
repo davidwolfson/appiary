@@ -2,16 +2,20 @@ import { expect, test, type Request } from "@playwright/test";
 
 import type {
   AuthResponse,
+  CreateApiaryResponse,
   CreateHiveInspectionRequest,
   CreateHiveInspectionResponse,
   CreateHiveResponse,
+  ListApiariesResponse,
   ListHiveInspectionsResponse,
   ListHivesResponse,
 } from "@appiary/types";
 
 import {
+  createApiaryThroughRealApi,
   createHiveThroughRealApi,
   createInspectionThroughRealApi,
+  createRealApiaryInput,
   createRealApiIdentity,
   createRealHiveInput,
   createRealInspectionInput,
@@ -36,7 +40,7 @@ test.describe("real API smoke", () => {
 
   test("persists a UI-created hive and inspection @real-api", async ({ page }) => {
     const identity = createRealApiIdentity();
-    const hiveInput = createRealHiveInput();
+    const apiaryInput = createRealApiaryInput();
     const inspectionInput = createRealInspectionInput(7, {
       inspectionDate: "2026-08-07",
       inspectionTime: "14:35",
@@ -51,16 +55,25 @@ test.describe("real API smoke", () => {
     const registerResponsePromise = page.waitForResponse(isApiResponse("POST", "/api/auth/register"));
     await registerPage.goto();
 
-    // when the guest registers, creates a hive and inspection, reloads, and signs in again
+    // when the guest registers, creates an apiary, hive, and inspection, reloads, and signs in again
     await registerPage.fillForm(identity.registration);
-    const initialListHivesResponsePromise = page.waitForResponse(isApiResponse("GET", "/api/hives"));
+    const initialListApiariesResponsePromise = page.waitForResponse(isApiResponse("GET", "/api/apiaries"));
     await registerPage.submit();
     const registrationResponse = await registerResponsePromise;
     const registration = await registrationResponse.json() as AuthResponse;
     cleanup.recordAccount(registration.user.accountId);
     await page.waitForURL(/\/$/);
-    const initialListHivesResponse = await initialListHivesResponsePromise;
-    await initialListHivesResponse.finished();
+    const initialListApiariesResponse = await initialListApiariesResponsePromise;
+    await initialListApiariesResponse.finished();
+    await page.getByRole("heading", { name: "No apiaries yet" }).waitFor({ state: "visible" });
+
+    const createApiaryResponsePromise = page.waitForResponse(isApiResponse("POST", "/api/apiaries"));
+    await dashboardPage.openAddApiaryModal();
+    await dashboardPage.fillApiaryForm(apiaryInput);
+    await dashboardPage.submitApiary();
+    const createApiaryResponse = await createApiaryResponsePromise;
+    const createdApiary = await createApiaryResponse.json() as CreateApiaryResponse;
+    const hiveInput = createRealHiveInput(createdApiary.apiary.apiaryId);
     await dashboardPage.emptyState.waitFor({ state: "visible" });
 
     const createHiveResponsePromise = page.waitForResponse(isApiResponse("POST", "/api/hives"));
@@ -87,7 +100,9 @@ test.describe("real API smoke", () => {
     const routeAfterReload = new URL(page.url()).pathname;
 
     const loginResponsePromise = page.waitForResponse(isApiResponse("POST", "/api/auth/login"));
-    const listHivesResponsePromise = page.waitForResponse(isApiResponse("GET", "/api/hives"));
+    const listHivesResponsePromise = page.waitForResponse(
+      isApiResponse("GET", "/api/hives", `apiaryId=${createdApiary.apiary.apiaryId}`),
+    );
     await loginPage.fillForm({ email: identity.email, password: identity.password });
     await loginPage.submit();
     const loginResponse = await loginResponsePromise;
@@ -99,7 +114,8 @@ test.describe("real API smoke", () => {
 
     // then both browser creates used the registration token and persisted DTO-compatible values
     expect(registrationResponse.status()).toBe(201);
-    expect(initialListHivesResponse.status()).toBe(200);
+    expect(initialListApiariesResponse.status()).toBe(200);
+    expect(createApiaryResponse.status()).toBe(201);
     expect(createHiveResponse.status()).toBe(201);
     expect(createInspectionResponse.status()).toBe(201);
     expectAuthorization(createHiveRequest, registration.token);
@@ -130,7 +146,6 @@ test.describe("real API smoke", () => {
 
   test("loads a persisted second inspection page @real-api", async ({ page, request }) => {
     const identity = createRealApiIdentity();
-    const hiveInput = createRealHiveInput();
     const inspections: CreateHiveInspectionRequest[] = Array.from({ length: 6 }, (_, index) =>
       createRealInspectionInput(index + 1, {
         inspectionDate: `2026-08-${String(index + 1).padStart(2, "0")}`,
@@ -142,11 +157,15 @@ test.describe("real API smoke", () => {
 
     // given a real account has one hive and six deliberately ordered persisted inspections
     const registration = await registerThroughRealApi(request, cleanup, identity.registration);
+    const createdApiary = await createApiaryThroughRealApi(request, registration.token, createRealApiaryInput());
+    const hiveInput = createRealHiveInput(createdApiary.apiary.apiaryId);
     const createdHive = await createHiveThroughRealApi(request, registration.token, hiveInput);
     for (const inspection of inspections) {
       await createInspectionThroughRealApi(request, registration.token, createdHive.hive.hiveId, inspection);
     }
-    const listHivesResponsePromise = page.waitForResponse(isApiResponse("GET", "/api/hives"));
+    const listHivesResponsePromise = page.waitForResponse(
+      isApiResponse("GET", "/api/hives", `apiaryId=${createdApiary.apiary.apiaryId}`),
+    );
     await loginPage.goto();
 
     // when the user signs in and advances the hive to inspection page two
@@ -194,12 +213,72 @@ test.describe("real API smoke", () => {
     await expect(dashboardPage.previousInspectionsButton(createdHive.hive.hiveId)).toBeEnabled();
     await expect(dashboardPage.nextInspectionsButton(createdHive.hive.hiveId)).toBeDisabled();
   });
+
+  test("persists apiary filtering and hive reassignment with account isolation @real-api", async ({ page, request }) => {
+    const ownerIdentity = createRealApiIdentity();
+    const foreignIdentity = createRealApiIdentity();
+    const loginPage = createLoginPage(page);
+    const dashboardPage = createHivesDashboardPage(page);
+
+    // given two accounts own separate apiaries and the first account owns hives in two apiaries
+    const owner = await registerThroughRealApi(request, cleanup, ownerIdentity.registration);
+    const apiaryOne = await createApiaryThroughRealApi(request, owner.token, { name: `Orchard ${crypto.randomUUID()}` });
+    const apiaryTwo = await createApiaryThroughRealApi(request, owner.token, { name: `Meadow ${crypto.randomUUID()}` });
+    const hiveOneInput = createRealHiveInput(apiaryOne.apiary.apiaryId);
+    const hiveTwoInput = createRealHiveInput(apiaryTwo.apiary.apiaryId);
+    const hiveOne = await createHiveThroughRealApi(request, owner.token, hiveOneInput);
+    const hiveTwo = await createHiveThroughRealApi(request, owner.token, hiveTwoInput);
+    const foreign = await registerThroughRealApi(request, cleanup, foreignIdentity.registration);
+    const foreignApiary = await createApiaryThroughRealApi(request, foreign.token, { name: `Foreign ${crypto.randomUUID()}` });
+    const foreignHive = await createHiveThroughRealApi(request, foreign.token, createRealHiveInput(foreignApiary.apiary.apiaryId));
+
+    await loginPage.goto();
+    await loginPage.fillForm({ email: ownerIdentity.email, password: ownerIdentity.password });
+    const ownerLoginResponsePromise = page.waitForResponse(isApiResponse("POST", "/api/auth/login"));
+    const apiariesResponsePromise = page.waitForResponse(isApiResponse("GET", "/api/apiaries"));
+    const initialHivesResponsePromise = page.waitForResponse(isApiResponse("GET", "/api/hives", null));
+    await loginPage.submit();
+    const ownerLogin = await (await ownerLoginResponsePromise).json() as AuthResponse;
+    const apiariesResponse = await apiariesResponsePromise;
+    const listedApiaries = await apiariesResponse.json() as ListApiariesResponse;
+    await initialHivesResponsePromise;
+    await dashboardPage.selectApiary(apiaryOne.apiary.apiaryId);
+    await dashboardPage.expectHiveCard(hiveOne.hive.hiveId, hiveOneInput.name, "Active");
+
+    // when the owner reassigns the first hive to the second apiary
+    const updateResponsePromise = page.waitForResponse(isApiResponse("PUT", `/api/hives/${hiveOne.hive.hiveId}`));
+    await dashboardPage.openEditHiveModal(hiveOne.hive.hiveId);
+    await dashboardPage.fillForm({ ...hiveOneInput, apiaryId: apiaryTwo.apiary.apiaryId });
+    await dashboardPage.submit();
+    const updateResponse = await updateResponsePromise;
+    const updateRequest = updateResponse.request();
+
+    await page.reload();
+    await page.waitForURL(new RegExp(`${routes.login}$`));
+    await loginPage.fillForm({ email: ownerIdentity.email, password: ownerIdentity.password });
+    await loginPage.submit();
+    await dashboardPage.selectApiary(apiaryTwo.apiary.apiaryId);
+
+    // then only owner data is visible and the reassignment persisted across the fresh login
+    expect(listedApiaries.apiaries.map(({ apiaryId }) => apiaryId).sort()).toEqual([
+      apiaryOne.apiary.apiaryId,
+      apiaryTwo.apiary.apiaryId,
+    ].sort());
+    expect(listedApiaries.apiaries).not.toContainEqual(expect.objectContaining({ apiaryId: foreignApiary.apiary.apiaryId }));
+    expect(updateRequest.postDataJSON()).toEqual({ ...hiveOneInput, apiaryId: apiaryTwo.apiary.apiaryId });
+    expectAuthorization(updateRequest, ownerLogin.token);
+    await dashboardPage.expectHiveCard(hiveOne.hive.hiveId, hiveOneInput.name, "Active");
+    await dashboardPage.expectHiveCard(hiveTwo.hive.hiveId, hiveTwoInput.name, "Active");
+    await expect(dashboardPage.hiveCard(foreignHive.hive.hiveId)).toHaveCount(0);
+  });
 });
 
-function isApiResponse(method: string, pathname: string, search = "") {
+function isApiResponse(method: string, pathname: string, search: string | null = "") {
   return (response: { request(): Request; url(): string }): boolean => {
     const url = new URL(response.url());
-    return response.request().method() === method && url.pathname === pathname && url.search.slice(1) === search;
+    return response.request().method() === method
+      && url.pathname === pathname
+      && (search === null || url.search.slice(1) === search);
   };
 }
 

@@ -11,6 +11,7 @@ vi.mock("../../../src/utils/database.js", () => ({
 import { DuplicateHiveNameError, HiveRepository } from "../../../src/repositories/hive.repository.js";
 
 describe("HiveRepository", () => {
+  const apiaryId = "apiary-1";
   beforeEach(() => {
     queryMock.mockReset();
   });
@@ -25,6 +26,7 @@ describe("HiveRepository", () => {
       rows: [{
         hive_id: "hive-1",
         account_id: "account-1",
+        apiary_id: apiaryId,
         name: "North Field",
         status: true,
         created_at: createdAt,
@@ -35,6 +37,7 @@ describe("HiveRepository", () => {
     // when the repository creates the hive
     const result = repository.create({
       accountId: "account-1",
+      apiaryId,
       name: "North Field",
       status: true,
     });
@@ -43,6 +46,7 @@ describe("HiveRepository", () => {
     await expect(result).resolves.toEqual({
       hiveId: "hive-1",
       accountId: "account-1",
+      apiaryId,
       name: "North Field",
       status: true,
       createdAt,
@@ -50,6 +54,7 @@ describe("HiveRepository", () => {
     });
     expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("INSERT INTO hives"), [
       "account-1",
+      apiaryId,
       "North Field",
       true,
     ]);
@@ -64,6 +69,7 @@ describe("HiveRepository", () => {
     // when the repository creates the hive
     const result = repository.create({
       accountId: "account-1",
+      apiaryId,
       name: "North Field",
       status: true,
     });
@@ -80,6 +86,7 @@ describe("HiveRepository", () => {
       rows: [{
         hive_id: "hive-1",
         account_id: "account-1",
+        apiary_id: apiaryId,
         name: "North Field",
         status: false,
         created_at: new Date("2026-01-01T00:00:00.000Z"),
@@ -88,16 +95,17 @@ describe("HiveRepository", () => {
     });
 
     // when the repository lists that account's hives
-    const result = await repository.findByAccountId("account-1");
+    const result = await repository.findByAccountIdAndApiaryId("account-1", apiaryId);
 
     // then the query is scoped and rows are mapped
     expect(result[0]).toMatchObject({
       hiveId: "hive-1",
       accountId: "account-1",
+      apiaryId,
       name: "North Field",
       status: false,
     });
-    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("WHERE account_id = $1"), ["account-1"]);
+    expect(queryMock).toHaveBeenCalledWith(expect.stringContaining("AND apiary_id = $2"), ["account-1", apiaryId]);
   });
 
   it("updates a hive to changed values scoped by account id and hive id", async () => {
@@ -120,6 +128,7 @@ describe("HiveRepository", () => {
       rows: [{
         hive_id: existingHive.hiveId,
         account_id: existingHive.accountId,
+        apiary_id: apiaryId,
         name: updatePayload.name,
         status: updatePayload.status,
         created_at: createdAt,
@@ -131,6 +140,7 @@ describe("HiveRepository", () => {
     const result = repository.update({
       accountId: existingHive.accountId,
       hiveId: existingHive.hiveId,
+      apiaryId,
       name: updatePayload.name,
       status: updatePayload.status,
     });
@@ -139,6 +149,7 @@ describe("HiveRepository", () => {
     await expect(result).resolves.toEqual({
       hiveId: existingHive.hiveId,
       accountId: existingHive.accountId,
+      apiaryId,
       name: updatePayload.name,
       status: updatePayload.status,
       createdAt,
@@ -146,23 +157,23 @@ describe("HiveRepository", () => {
     });
     expect(queryMock).toHaveBeenCalledWith(
       expect.stringContaining("WHERE account_id = $1"),
-      [existingHive.accountId, existingHive.hiveId, updatePayload.name, updatePayload.status],
+      [existingHive.accountId, existingHive.hiveId, apiaryId, updatePayload.name, updatePayload.status],
     );
     expect(queryMock).toHaveBeenCalledWith(
       expect.stringContaining("AND hive_id = $2"),
-      [existingHive.accountId, existingHive.hiveId, updatePayload.name, updatePayload.status],
+      [existingHive.accountId, existingHive.hiveId, apiaryId, updatePayload.name, updatePayload.status],
     );
     expect(queryMock).toHaveBeenCalledWith(
       expect.stringContaining("updated_at = NOW()"),
-      [existingHive.accountId, existingHive.hiveId, updatePayload.name, updatePayload.status],
+      [existingHive.accountId, existingHive.hiveId, apiaryId, updatePayload.name, updatePayload.status],
     );
     expect(queryMock).toHaveBeenCalledWith(
-      expect.stringContaining("SET name = $3"),
-      [existingHive.accountId, existingHive.hiveId, updatePayload.name, updatePayload.status],
+      expect.stringContaining("name = $4"),
+      [existingHive.accountId, existingHive.hiveId, apiaryId, updatePayload.name, updatePayload.status],
     );
     expect(queryMock).toHaveBeenCalledWith(
-      expect.stringContaining("status = $4"),
-      [existingHive.accountId, existingHive.hiveId, updatePayload.name, updatePayload.status],
+      expect.stringContaining("status = $5"),
+      [existingHive.accountId, existingHive.hiveId, apiaryId, updatePayload.name, updatePayload.status],
     );
   });
 
@@ -176,6 +187,7 @@ describe("HiveRepository", () => {
     const result = repository.update({
       accountId: "account-1",
       hiveId: "missing-hive",
+      apiaryId,
       name: "South Field",
       status: false,
     });
@@ -194,6 +206,7 @@ describe("HiveRepository", () => {
     const result = repository.update({
       accountId: "account-1",
       hiveId: "hive-1",
+      apiaryId,
       name: "South Field",
       status: true,
     });

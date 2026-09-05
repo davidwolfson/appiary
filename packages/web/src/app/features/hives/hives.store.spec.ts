@@ -42,7 +42,7 @@ describe("HivesStore", () => {
     ]);
 
     // when the store loads hives
-    await store.loadHives();
+    await store.loadHives("apiary-1");
 
     // then hive, loading, and error state reflect success
     expect(store.hives()).toEqual([
@@ -58,14 +58,14 @@ describe("HivesStore", () => {
     hivesService.listHives.mockResolvedValueOnce([
       { hiveId: "hive-1", name: "North Field", status: true },
     ]);
-    await store.loadHives();
+    await store.loadHives("apiary-1");
 
     hivesService.listHives.mockRejectedValue({
       error: { message: "Could not load hives" },
     });
 
     // when the store reloads hives
-    await store.loadHives();
+    await store.loadHives("apiary-1");
 
     // then stale hives are cleared and the load error is exposed
     expect(store.hives()).toEqual([]);
@@ -81,18 +81,19 @@ describe("HivesStore", () => {
     ]);
     hivesService.createHive.mockResolvedValue({
       hiveId: "hive-2",
+      apiaryId: "apiary-1",
       name: "South Field",
       status: false,
     });
 
     // when the store creates a hive
-    await store.loadHives();
-    await store.createHive({ name: "South Field", status: false });
+    await store.loadHives("apiary-1");
+    await store.createHive({ apiaryId: "apiary-1", name: "South Field", status: false });
 
     // then the created hive is appended and create state is cleared
     expect(store.hives()).toEqual([
       { hiveId: "hive-1", name: "North Field", status: true },
-      { hiveId: "hive-2", name: "South Field", status: false },
+      { hiveId: "hive-2", apiaryId: "apiary-1", name: "South Field", status: false },
     ]);
     expect(store.createError()).toBeNull();
     expect(store.isCreating()).toBe(false);
@@ -105,7 +106,7 @@ describe("HivesStore", () => {
     hivesService.createHive.mockRejectedValue(error);
 
     // when the store creates a hive
-    const result = store.createHive({ name: "North Field", status: true });
+    const result = store.createHive({ apiaryId: "apiary-1", name: "North Field", status: true });
 
     // then the rejection propagates and create error state is set
     await expect(result).rejects.toBe(error);
@@ -133,21 +134,23 @@ describe("HivesStore", () => {
     ]);
     hivesService.updateHive.mockResolvedValue({
       hiveId: "hive-1",
+      apiaryId: "apiary-1",
       name: "North Field Updated",
       status: false,
       inspections: [inspection],
     });
 
     // when the store updates the first hive
-    await store.loadHives();
-    await store.updateHive("hive-1", { name: "North Field Updated", status: false });
+    await store.loadHives("apiary-1");
+    await store.updateHive("hive-1", { apiaryId: "apiary-1", name: "North Field Updated", status: false });
 
     // then the matching hive is replaced in its original position
     expect(store.hives()).toEqual([
-      { hiveId: "hive-1", name: "North Field Updated", status: false, inspections: [inspection] },
+      { hiveId: "hive-1", apiaryId: "apiary-1", name: "North Field Updated", status: false, inspections: [inspection] },
       { hiveId: "hive-2", name: "South Field", status: false, inspections: [] },
     ]);
     expect(hivesService.updateHive).toHaveBeenCalledWith("hive-1", {
+      apiaryId: "apiary-1",
       name: "North Field Updated",
       status: false,
     });
@@ -162,7 +165,7 @@ describe("HivesStore", () => {
     hivesService.updateHive.mockRejectedValue(error);
 
     // when the store updates a hive
-    const result = store.updateHive("hive-1", { name: "North Field", status: true });
+    const result = store.updateHive("hive-1", { apiaryId: "apiary-1", name: "North Field", status: true });
 
     // then the rejection propagates and update error state is set
     await expect(result).rejects.toBe(error);
@@ -175,7 +178,7 @@ describe("HivesStore", () => {
     hivesService.updateHive.mockRejectedValue({
       error: { message: "Hive name already exists" },
     });
-    await expect(store.updateHive("hive-1", { name: "North Field", status: true })).rejects.toBeDefined();
+    await expect(store.updateHive("hive-1", { apiaryId: "apiary-1", name: "North Field", status: true })).rejects.toBeDefined();
 
     // when the update error is cleared
     store.clearUpdateError();
@@ -189,7 +192,7 @@ describe("HivesStore", () => {
     const inspection = (id: string) => ({ inspectionId: id, hiveId: "hive-1", inspectionDate: "2026-07-31", inspectionTime: "12:00", queenRight: false, eggs: false, larva: false, cappedBrood: false, broodPattern: null, additionalNotes: null });
     hivesService.listHives.mockResolvedValue([{ hiveId: "hive-1", name: "North", status: true, inspections: [1, 2, 3, 4, 5].map((id) => inspection(String(id))) }, { hiveId: "hive-2", name: "South", status: true, inspections: [] }]);
     hivesService.createInspection.mockResolvedValue(inspection("new"));
-    await store.loadHives();
+    await store.loadHives("apiary-1");
     const untouchedHive = store.hives()[1];
 
     // when a new inspection is saved
@@ -208,7 +211,7 @@ describe("HivesStore", () => {
     const error = { error: { message: "Could not save inspection" } };
     hivesService.listHives.mockResolvedValue(hives);
     hivesService.createInspection.mockRejectedValue(error);
-    await store.loadHives();
+    await store.loadHives("apiary-1");
 
     // when an inspection save fails
     const result = store.createInspection("hive-1", { inspectionDate: "2026-07-31", inspectionTime: "12:00", queenRight: false, eggs: false, larva: false, cappedBrood: false });
@@ -228,7 +231,7 @@ describe("HivesStore", () => {
       { hiveId: "hive-1", name: "North", status: true, inspections: [firstPageInspection], inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 } },
       { hiveId: "hive-2", name: "South", status: true, inspections: [otherInspection], inspectionPagination: { page: 1, pageSize: 5, totalItems: 1, totalPages: 1 } },
     ]);
-    await store.loadHives();
+    await store.loadHives("apiary-1");
     const targetHiveBefore = store.hives()[0];
     const otherHiveBefore = store.hives()[1];
     let resolvePage!: (value: { inspections: (typeof secondPageInspection)[]; pagination: { page: number; pageSize: number; totalItems: number; totalPages: number } }) => void;
@@ -267,7 +270,7 @@ describe("HivesStore", () => {
     hivesService.listHives.mockResolvedValue(hives);
     hivesService.createInspection.mockRejectedValue({ error: { message: "Could not save inspection" } });
     hivesService.listInspections.mockRejectedValue({ error: { message: "Could not load inspections" } });
-    await store.loadHives();
+    await store.loadHives("apiary-1");
     await expect(store.createInspection("hive-1", { inspectionDate: "2026-07-31", inspectionTime: "12:00", queenRight: false, eggs: false, larva: false, cappedBrood: false })).rejects.toBeDefined();
     const hiveBefore = store.hives()[0];
     const otherHiveBefore = store.hives()[1];
@@ -292,7 +295,7 @@ describe("HivesStore", () => {
       { hiveId: "hive-1", name: "North", status: true, inspections: [], inspectionPagination: { page: 1, pageSize: 5, totalItems: 11, totalPages: 3 } },
       { hiveId: "hive-2", name: "South", status: true, inspections: [], inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 } },
     ]);
-    await store.loadHives();
+    await store.loadHives("apiary-1");
     hivesService.listInspections.mockRejectedValueOnce({ error: { message: "North failed" } });
     await store.loadInspectionPage("hive-1", 3);
     hivesService.listInspections.mockRejectedValueOnce({ error: { message: "South failed" } });
@@ -326,7 +329,7 @@ describe("HivesStore", () => {
       { hiveId: "hive-1", name: "North", status: true, inspections: [], inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 } },
       { hiveId: "hive-2", name: "South", status: true, inspections: [], inspectionPagination: { page: 1, pageSize: 5, totalItems: 6, totalPages: 2 } },
     ]);
-    await store.loadHives();
+    await store.loadHives("apiary-1");
     let resolveFirst!: (value: unknown) => void;
     let resolveSecond!: (value: unknown) => void;
     hivesService.listInspections
@@ -362,11 +365,11 @@ describe("HivesStore", () => {
     // given a hive has a stored pagination failure
     hivesService.listHives.mockResolvedValue([{ hiveId: "hive-1", name: "North", status: true, inspections: [] }]);
     hivesService.listInspections.mockRejectedValue({ error: { message: "Could not load inspections" } });
-    await store.loadHives();
+    await store.loadHives("apiary-1");
     await store.loadInspectionPage("hive-1", 2);
 
     // when hives reload
-    await store.loadHives();
+    await store.loadHives("apiary-1");
 
     // then stale keyed loading and failure state is removed
     expect(store.isLoadingInspectionPage("hive-1")).toBe(false);
@@ -379,11 +382,11 @@ describe("HivesStore", () => {
     const refreshedHive = { ...originalHive, name: "North Refreshed" };
     const staleInspection = { inspectionId: "inspection-6", hiveId: "hive-1", inspectionDate: "2026-07-25", inspectionTime: "12:00", queenRight: true, eggs: true, larva: true, cappedBrood: true, broodPattern: null, additionalNotes: null };
     hivesService.listHives.mockResolvedValueOnce([originalHive]).mockResolvedValueOnce([refreshedHive]);
-    await store.loadHives();
+    await store.loadHives("apiary-1");
     let resolveStalePage!: (value: unknown) => void;
     hivesService.listInspections.mockReturnValue(new Promise((resolve) => { resolveStalePage = resolve; }));
     const staleRequest = store.loadInspectionPage("hive-1", 2);
-    await store.loadHives();
+    await store.loadHives("apiary-1");
 
     // when the pre-reload page request succeeds
     resolveStalePage({ inspections: [staleInspection], pagination: { page: 2, pageSize: 5, totalItems: 6, totalPages: 2 } });
@@ -398,11 +401,11 @@ describe("HivesStore", () => {
     // given a page request remains pending while the same hive reloads
     const hive = { hiveId: "hive-1", name: "North", status: true, inspections: [] };
     hivesService.listHives.mockResolvedValue([hive]);
-    await store.loadHives();
+    await store.loadHives("apiary-1");
     let rejectStalePage!: (reason: unknown) => void;
     hivesService.listInspections.mockReturnValue(new Promise((_, reject) => { rejectStalePage = reject; }));
     const staleRequest = store.loadInspectionPage("hive-1", 2);
-    await store.loadHives();
+    await store.loadHives("apiary-1");
 
     // when the pre-reload page request fails
     rejectStalePage({ error: { message: "Stale failure" } });
@@ -417,14 +420,14 @@ describe("HivesStore", () => {
     // given a stale request and a post-reload request are pending for the same hive
     const hive = { hiveId: "hive-1", name: "North", status: true, inspections: [] };
     hivesService.listHives.mockResolvedValue([hive]);
-    await store.loadHives();
+    await store.loadHives("apiary-1");
     let resolveStalePage!: (value: unknown) => void;
     let resolveFreshPage!: (value: unknown) => void;
     hivesService.listInspections
       .mockReturnValueOnce(new Promise((resolve) => { resolveStalePage = resolve; }))
       .mockReturnValueOnce(new Promise((resolve) => { resolveFreshPage = resolve; }));
     const staleRequest = store.loadInspectionPage("hive-1", 2);
-    await store.loadHives();
+    await store.loadHives("apiary-1");
     const freshRequest = store.loadInspectionPage("hive-1", 2);
 
     // when the stale request settles before the refreshed request
@@ -437,5 +440,122 @@ describe("HivesStore", () => {
     // then the refreshed request retains ownership of the loading state
     expect(freshRequestStillLoading).toBe(true);
     expect(store.isLoadingInspectionPage("hive-1")).toBe(false);
+  });
+
+  it("ignores stale hive success and completion after selection changes", async () => {
+    // given two apiary list requests can settle independently
+    let resolveFirst!: (value: unknown[]) => void;
+    let resolveSecond!: (value: unknown[]) => void;
+    hivesService.listHives
+      .mockReturnValueOnce(new Promise((resolve) => { resolveFirst = resolve; }))
+      .mockReturnValueOnce(new Promise((resolve) => { resolveSecond = resolve; }));
+    const firstRequest = store.loadHives("apiary-1");
+    const secondRequest = store.loadHives("apiary-2");
+
+    // when the old selection settles before the current selection
+    resolveFirst([{ hiveId: "stale", apiaryId: "apiary-1", name: "Stale", status: true, inspections: [] }]);
+    await firstRequest;
+    const stateBeforeCurrentSettles = { hives: store.hives(), loading: store.isLoading(), error: store.error() };
+    const currentHive = { hiveId: "current", apiaryId: "apiary-2", name: "Current", status: true, inspections: [] };
+    resolveSecond([currentHive]);
+    await secondRequest;
+
+    // then stale success and finally handlers do not overwrite current request state
+    expect(stateBeforeCurrentSettles).toEqual({ hives: [], loading: true, error: null });
+    expect(store.hives()).toEqual([currentHive]);
+    expect(store.isLoading()).toBe(false);
+  });
+
+  it("ignores stale hive failure after selection changes", async () => {
+    // given an old list request and current list request are pending
+    let rejectFirst!: (reason: unknown) => void;
+    let resolveSecond!: (value: unknown[]) => void;
+    hivesService.listHives
+      .mockReturnValueOnce(new Promise((_, reject) => { rejectFirst = reject; }))
+      .mockReturnValueOnce(new Promise((resolve) => { resolveSecond = resolve; }));
+    const firstRequest = store.loadHives("apiary-1");
+    const secondRequest = store.loadHives("apiary-2");
+
+    // when the old request fails while the current request is loading
+    rejectFirst({ error: { message: "Stale failure" } });
+    await firstRequest;
+    const stateBeforeCurrentSettles = { loading: store.isLoading(), error: store.error() };
+    resolveSecond([]);
+    await secondRequest;
+
+    // then stale failure and completion state are suppressed
+    expect(stateBeforeCurrentSettles).toEqual({ loading: true, error: null });
+    expect(store.error()).toBeNull();
+  });
+
+  it("suppresses stale create completion after selection changes", async () => {
+    // given apiary one is loaded and hive creation remains pending
+    hivesService.listHives.mockResolvedValue([]);
+    await store.loadHives("apiary-1");
+    let resolveCreate!: (value: unknown) => void;
+    hivesService.createHive.mockReturnValue(new Promise((resolve) => { resolveCreate = resolve; }));
+    const createRequest = store.createHive({ apiaryId: "apiary-1", name: "North", status: true });
+    await store.loadHives("apiary-2");
+
+    // when creation for the old selection completes
+    resolveCreate({ hiveId: "hive-1", apiaryId: "apiary-1", name: "North", status: true, inspections: [] });
+    await createRequest;
+
+    // then the old hive is not appended and stale loading state stays cleared
+    expect(store.hives()).toEqual([]);
+    expect(store.isCreating()).toBe(false);
+    expect(store.createError()).toBeNull();
+  });
+
+  it("suppresses stale create errors after selection changes", async () => {
+    // given hive creation remains pending for a previous selection
+    hivesService.listHives.mockResolvedValue([]);
+    await store.loadHives("apiary-1");
+    let rejectCreate!: (reason: unknown) => void;
+    hivesService.createHive.mockReturnValue(new Promise((_, reject) => { rejectCreate = reject; }));
+    const createRequest = store.createHive({ apiaryId: "apiary-1", name: "North", status: true });
+    await store.loadHives("apiary-2");
+
+    // when the obsolete request fails
+    rejectCreate({ error: { message: "Stale create failure" } });
+    await createRequest;
+
+    // then the new selection receives no error or loading state
+    expect(store.createError()).toBeNull();
+    expect(store.isCreating()).toBe(false);
+  });
+
+  it("removes a hive reassigned outside the active apiary", async () => {
+    // given apiary one contains a hive and update moves it to apiary two
+    const hive = { hiveId: "hive-1", apiaryId: "apiary-1", name: "North", status: true, inspections: [] };
+    hivesService.listHives.mockResolvedValue([hive]);
+    hivesService.updateHive.mockResolvedValue({ ...hive, apiaryId: "apiary-2" });
+    await store.loadHives("apiary-1");
+
+    // when the hive is reassigned
+    await store.updateHive("hive-1", { apiaryId: "apiary-2", name: "North", status: true });
+
+    // then it is removed from the active apiary list
+    expect(store.hives()).toEqual([]);
+  });
+
+  it("suppresses stale update completion after selection changes", async () => {
+    // given apiary one has a hive whose update remains pending
+    const originalHive = { hiveId: "hive-1", apiaryId: "apiary-1", name: "North", status: true, inspections: [] };
+    hivesService.listHives.mockResolvedValueOnce([originalHive]).mockResolvedValueOnce([]);
+    await store.loadHives("apiary-1");
+    let resolveUpdate!: (value: unknown) => void;
+    hivesService.updateHive.mockReturnValue(new Promise((resolve) => { resolveUpdate = resolve; }));
+    const updateRequest = store.updateHive("hive-1", { apiaryId: "apiary-1", name: "Changed", status: false });
+    await store.loadHives("apiary-2");
+
+    // when the update from the old selection completes
+    resolveUpdate({ ...originalHive, name: "Changed", status: false });
+    await updateRequest;
+
+    // then it cannot repopulate or change operation state for the current selection
+    expect(store.hives()).toEqual([]);
+    expect(store.isUpdating()).toBe(false);
+    expect(store.updateError()).toBeNull();
   });
 });
